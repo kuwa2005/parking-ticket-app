@@ -1,14 +1,24 @@
+駐車券記録アプリ — Docker デプロイ検証結果（F1-F4 修正後・再実行）
+実行: bash tests/docker_check.sh（コンテナ park-app 稼働中）
+日時: 2026-08-07
+
 PASS 0 コンテナ running
 PASS 0 restart=unless-stopped
 PASS 1 index.php 200 + 駐車券UI
-PASS 2 today 初期 total=0
-PASS 3 add(count=2) → 201
-PASS 4 today total=2（DB書込OK）
+PASS 2 today baseline total=6
+PASS 3 add(count=2) → 201 id=6
+PASS 4 today total=8（DB書込OK）
 PASS 5 GET /data/parking.db → 403（直アクセス遮断）
 PASS 5 GET /data/.htaccess → 403（直アクセス遮断）
-PASS 6 restart 後も total=2（永続化OK）
+PASS 6 restart 後も total=8（永続化OK）
 PASS 7 login(pw=1234) → 200
-PASS 7 delete → 204
-PASS 7 today total=0（元の状態に復元）
+PASS 7 delete(id=6) → 204
+PASS 7 today total=6（ベースラインに復元）
+PASS 8 Server=Apache（バージョン非開示）      ← 監査F3対応（ServerTokens Prod）
+PASS 8 X-Powered-By なし（expose_php=Off）   ← 監査F3対応
+PASS 9 display_errors=Off                    ← 監査F2対応
+PASS 10 index.php セキュリティヘッダ3種      ← 監査F4対応
+PASS 11 404ページに署名なし                  ← 監査F3対応（ServerSignature Off）
 
-RESULT: 12 passed, 0 failed
+RESULT: 17 passed, 0 failed
+※ 実DB（./data）にユーザーデータが存在しても自レコードのみ削除する安全設計

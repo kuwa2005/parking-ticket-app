@@ -63,7 +63,10 @@ switch ($action) {
     }
     case 'login': {
         $pw = read_json_body()['pw'] ?? null;
-        if (!is_string($pw) || !hash_equals(ADMIN_PW, $pw)) { respond(401, ['error' => 'unauthorized']); }
+        if (!is_string($pw) || !hash_equals(ADMIN_PW, $pw)) {
+            sleep(1); // 監査F1: ブルートフォース抑止（誤PW時に固定遅延）
+            respond(401, ['error' => 'unauthorized']);
+        }
         session_regenerate_id(true);
         $_SESSION['auth'] = true;
         respond(200, ['ok' => true]);

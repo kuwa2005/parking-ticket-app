@@ -77,13 +77,15 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 | スイート | 内容 | 実行 |
 |---|---|---|
 | 単体テスト | 記録・集計・削除・TZ固定のロジック（12ケース） | `php tests/run_tests.php` |
-| HTTPスモーク | API のステータスコード・PW認証スコープ（12ケース） | `bash tests/smoke_test.sh` |
+| HTTPスモーク | API のステータスコード・PW認証スコープ・ログイン遅延・セキュリティヘッダ（14ケース） | `bash tests/smoke_test.sh` |
 | UI E2E | 実ブラウザ（ヘッドレスchrome + CDP）で操作一連（17チェック） | `node tests/e2e_ui.mjs`（別途サーバー起動） |
-| Docker検証 | コンテナ状態・API・DB直アクセス拒否・永続化（12ケース） | `bash tests/docker_check.sh` |
+| Docker検証 | コンテナ状態・API・DB直アクセス拒否・永続化・セキュリティ設定（17ケース） | `bash tests/docker_check.sh` |
 
 ## セキュリティ上の注意
 
 - パスワードはデモ用の簡易パスワード（初期値 `1234`）で、LAN 内での誤操作・悪用を防ぐためのゲートであり、インターネット級の認証ではありません
+- パスワード誤入力時は約1秒の応答遅延で総当たりを抑止しています（4桁PWの全通り試行には最低約2.8時間）
 - このアプリは個人情報やクリティカルな情報を扱いません（記録内容は枚数と日時のみ）
 - 記録・今日の合計・今日の一覧はパスワード不要で誰でも操作できます
 - `data/.htaccess` により DB ファイルの直接ダウンロードは遮断されます（Apache環境。`php -S` では機能しないため注意）
+- セキュリティヘッダ（X-Content-Type-Options / X-Frame-Options / Referrer-Policy）を送信し、Apache/PHP のバージョンは非開示です

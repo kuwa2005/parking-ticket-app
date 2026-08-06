@@ -1,14 +1,5 @@
-PASS T11 timezone is Asia/Tokyo
-PASS T1 add_record(3)
-PASS T12 created_at format
-PASS T2 invalid counts rejected
-PASS T3 today total
-PASS T4 today order desc — ids=[7,6,5,4,3,2]
-PASS T8 date boundary
-PASS T5 monthly totals
-PASS T6 other months excluded
-PASS T7 monthly param validation
-PASS T9 delete record
-PASS T10 delete nonexistent
+駐車券記録アプリ — 単体テスト結果（F1-F4 修正後・再実行）
+実行: php tests/run_tests.php
+日時: 2026-08-07
 
 12/12 passed

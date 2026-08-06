@@ -79,6 +79,24 @@ today=$(curl -s "$BASE/api.php?action=today")
 total=$(printf '%s' "$today" | sed -n 's/.*"total":\([0-9]*\).*/\1/p')
 if [ "$total" = "0" ]; then ok "12 today total=0 after delete"; else ng "12 today after delete" "total=$total"; fi
 
+# 13. 誤PWログインは1秒以上かかる（監査F1: ブルートフォース抑止）
+S=$(date +%s%N)
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"pw":"8888"}' "$BASE/api.php?action=login")
+E=$(date +%s%N)
+ms=$(( (E - S) / 1000000 ))
+if [ "$code" = "401" ] && [ "$ms" -ge 1000 ]; then ok "13 login wrong pw throttled (${ms}ms)"; else ng "13 login throttle" "code=$code ms=${ms}ms"; fi
+
+# 14. index.php セキュリティヘッダ3種（監査F4）
+HDRS=$(curl -sI "$BASE/index.php")
+XFO=$(printf '%s' "$HDRS" | grep -i '^X-Frame-Options: DENY' | head -1)
+XCT=$(printf '%s' "$HDRS" | grep -i '^X-Content-Type-Options: nosniff' | head -1)
+RP=$(printf '%s' "$HDRS" | grep -i '^Referrer-Policy: no-referrer' | head -1)
+if [ -n "$XFO" ] && [ -n "$XCT" ] && [ -n "$RP" ]; then
+  ok "14 index.php セキュリティヘッダ3種"
+else
+  ng "14 index.php セキュリティヘッダ" "XFO=$XFO XCT=$XCT RP=$RP"
+fi
+
 echo
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]

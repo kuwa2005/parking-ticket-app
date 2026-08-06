@@ -1,6 +1,9 @@
 <?php
 // 駐車券記録アプリ — 単一ページUI（モバイルファースト・Bootstrap 5.3.3 CDN）
 require_once __DIR__ . '/lib/config.php';
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
 ?><!DOCTYPE html>
 <html lang="ja" data-bs-theme="auto">
 <head>

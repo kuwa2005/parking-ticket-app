@@ -1,3 +1,7 @@
+駐車券記録アプリ — HTTPスモークテスト結果（F1-F4 修正後・再実行）
+実行: bash tests/smoke_test.sh（php -S + curl、PARK_DB_PATH=/tmp/park_smoke.db）
+日時: 2026-08-07
+
 PASS 1 index.php 200 + UI要素
 PASS 2 add(count=2) 201 id=1
 PASS 3 today total=2
@@ -10,5 +14,7 @@ PASS 9 delete no-auth 401
 PASS 10 delete authed 204
 PASS 11 delete again 404
 PASS 12 today total=0 after delete
+PASS 13 login wrong pw throttled (1019ms)   ← 監査F1対応（誤PW時1秒遅延）
+PASS 14 index.php セキュリティヘッダ3種     ← 監査F4対応（XFO/nosniff/Referrer-Policy）
 
-RESULT: 12 passed, 0 failed
+RESULT: 14 passed, 0 failed
