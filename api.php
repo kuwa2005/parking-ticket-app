@@ -1,0 +1,80 @@
+<?php
+require_once __DIR__ . '/lib/store.php';
+
+session_name('park_app');
+session_set_cookie_params(['httponly' => true, 'samesite' => 'Lax', 'secure' => false]);
+session_start();
+
+header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+
+function respond(int $status, $data = null): void {
+    http_response_code($status);
+    if ($data !== null) { echo json_encode($data, JSON_UNESCAPED_UNICODE); }
+    exit;
+}
+
+function read_json_body(): array {
+    $raw = file_get_contents('php://input');
+    $decoded = json_decode($raw === false ? '' : $raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function require_auth(): void {
+    if (empty($_SESSION['auth'])) { respond(401, ['error' => 'unauthorized']); }
+}
+
+$db = db_open();
+$action = $_GET['action'] ?? '';
+
+switch ($action) {
+    case 'add': {
+        $count = read_json_body()['count'] ?? null;
+        if (!is_int($count) || $count < 1 || $count > MAX_COUNT) {
+            respond(400, ['error' => 'count must be an integer between 1 and ' . MAX_COUNT]);
+        }
+        $rec = add_record($db, $count);
+        if ($rec === null) { respond(400, ['error' => 'count must be an integer between 1 and ' . MAX_COUNT]); }
+        respond(201, $rec);
+        break;
+    }
+    case 'today': {
+        respond(200, get_today($db));
+        break;
+    }
+    case 'monthly': {
+        require_auth();
+        $year = $_GET['year'] ?? null;
+        $month = $_GET['month'] ?? null;
+        $year = is_string($year) && ctype_digit($year) ? (int)$year : null;
+        $month = is_string($month) && ctype_digit($month) ? (int)$month : null;
+        $result = get_monthly_totals($db, $year, $month);
+        if ($result === null) { respond(400, ['error' => 'year (2000-2100) and month (1-12) are required']); }
+        respond(200, $result);
+        break;
+    }
+    case 'delete': {
+        require_auth();
+        $id = $_GET['id'] ?? null;
+        $id = is_string($id) && ctype_digit($id) ? (int)$id : null;
+        if ($id === null || !delete_record($db, $id)) { respond(404, ['error' => 'not found']); }
+        respond(204);
+        break;
+    }
+    case 'login': {
+        $pw = read_json_body()['pw'] ?? null;
+        if (!is_string($pw) || !hash_equals(ADMIN_PW, $pw)) { respond(401, ['error' => 'unauthorized']); }
+        session_regenerate_id(true);
+        $_SESSION['auth'] = true;
+        respond(200, ['ok' => true]);
+        break;
+    }
+    case 'logout': {
+        $_SESSION = [];
+        session_destroy();
+        respond(200, ['ok' => true]);
+        break;
+    }
+    default:
+        respond(404, ['error' => 'unknown action']);
+}

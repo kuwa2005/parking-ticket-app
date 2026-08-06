@@ -1,0 +1,21 @@
+connected to existing chrome
+PASS E1 initial total 0
+PASS E1 empty message
+PASS E2 total=3
+PASS E2 one row
+PASS E2 row shows 3枚
+PASS E3 total=5
+PASS E3 two rows
+PASS E4 month panel visible
+PASS E4 pw dialog opens
+PASS E5 wrong pw error
+PASS E6 month table shown
+PASS E6 grand total 5
+PASS E6 dialog closes
+PASS E7 total=3 after delete
+PASS E7 one row left
+PASS E8 total=0 after delete
+PASS E8 empty again
+pageErrors: none
+
+RESULT: 17/17 passed

@@ -1,0 +1,14 @@
+PASS 1 index.php 200 + UI要素
+PASS 2 add(count=2) 201 id=1
+PASS 3 today total=2
+PASS 4 add(count=0) 400
+PASS 5 monthly no-auth 401
+PASS 6 login wrong pw 401
+PASS 7 login correct pw 200
+PASS 8 monthly authed 200 + today included
+PASS 9 delete no-auth 401
+PASS 10 delete authed 204
+PASS 11 delete again 404
+PASS 12 today total=0 after delete
+
+RESULT: 12 passed, 0 failed

@@ -1,0 +1,10 @@
+services:
+  park:
+    build: .
+    container_name: park-app
+    ports:
+      - "4500:80"
+    volumes:
+      - ./data:/var/www/html/data
+    restart: unless-stopped
+    command: park-entrypoint
