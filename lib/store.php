@@ -20,10 +20,17 @@ function add_record(PDO $db, $count, ?DateTimeImmutable $now = null): ?array {
     return ['id' => (int)$db->lastInsertId(), 'count' => $count, 'created_at' => $createdAt];
 }
 
-/** 指定日（既定: 今日 JST）の記録一覧（時間昇順・同刻は id 昇順）と合計。 */
+/** 指定日（今日 JST 等）の記録一覧（時間昇順・同刻は id 昇順）と合計。 */
 function get_today(PDO $db, ?DateTimeImmutable $now = null): array {
     $now = $now ?? now_jst();
-    $date = $now->format('Y-m-d');
+    return get_day($db, $now->format('Y-m-d'));
+}
+
+/** 指定日（YYYY-MM-DD）の記録一覧（時間昇順・同刻は id 昇順）と合計。形式不正は空の一覧。 */
+function get_day(PDO $db, string $date): array {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return ['date' => $date, 'total' => 0, 'records' => []];
+    }
     $stmt = $db->prepare('SELECT id, count, created_at FROM records WHERE created_at LIKE ? ORDER BY created_at ASC, id ASC');
     $stmt->execute([$date . '%']);
     $records = array_map(
@@ -31,6 +38,13 @@ function get_today(PDO $db, ?DateTimeImmutable $now = null): array {
         $stmt->fetchAll(PDO::FETCH_ASSOC)
     );
     return ['date' => $date, 'total' => array_sum(array_column($records, 'count')), 'records' => $records];
+}
+
+/** データ更新検出用: レコード総数と最大 id。 */
+function get_db_version(PDO $db): array {
+    $stmt = $db->query('SELECT COUNT(*) AS c, COALESCE(MAX(id), 0) AS m FROM records');
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return ['count' => (int)$row['c'], 'maxId' => (int)$row['m']];
 }
 
 /** 指定年月の日別合計（全日・昇順）。year 2000-2100 / month 1-12 以外は null。 */

@@ -92,6 +92,31 @@ check('T9 delete record', $deleted === true && $after === $before - 1);
 // T10: 削除（存在しないID）
 check('T10 delete nonexistent', delete_record($db, 999999) === false && delete_record($db, 'abc') === false);
 
+// T13: 日詳細（指定日の一覧・時間昇順・合計）
+$d3 = get_day($db, '2026-08-03');
+$times = array_column($d3['records'], 'created_at');
+check('T13 day records asc', $d3['total'] === 5 && count($d3['records']) === 2
+    && $times[0] === '2026-08-03 12:00:00' && $times[1] === '2026-08-03 13:00:00');
+
+// T14: 日詳細（記録のない日は空・形式不正も空）
+$dEmpty = get_day($db, '2026-08-05');
+check('T14 day empty', $dEmpty['total'] === 0 && $dEmpty['records'] === []
+    && get_day($db, '2026/08/03')['total'] === 0 && get_day($db, 'abc')['total'] === 0);
+
+// T15: 日詳細（日付境界 — 前後の日は含まない）
+$d31 = get_day($db, '2026-07-31');
+$d1 = get_day($db, '2026-09-01');
+$dAug = get_day($db, '2026-08-03');
+$allAug = count(array_filter($dAug['records'], fn($r) => str_starts_with($r['created_at'], '2026-08-03')));
+check('T15 day boundary', $d31['total'] === 7 && $d1['total'] === 8
+    && count($dAug['records']) === 2 && $allAug === 2);
+
+// T16: データ更新検出（version: count と maxId）
+$v0 = get_db_version($db);
+$rNew = add_record($db, 4, new DateTimeImmutable('2026-08-02 10:00:00', $tz));
+$v1 = get_db_version($db);
+check('T16 version count/maxId', $v1['count'] === $v0['count'] + 1 && $v1['maxId'] === $rNew['id']);
+
 $passCount = count(array_filter($results, fn($r) => $r['pass']));
 echo "\n$passCount/" . count($results) . " passed\n";
 exit($passCount === count($results) ? 0 : 1);
