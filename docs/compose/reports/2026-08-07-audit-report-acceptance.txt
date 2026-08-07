@@ -1,0 +1,10 @@
+PASS T1 セキュリティ監査レポート.md exists (>1000B)
+PASS T2 必須節（総評/発見と対応/結論）あり
+PASS T3 README にリンクあり
+PASS T4 相対リンク先5ファイル実在
+PASS T5 コミット 9127051 存在
+PASS T6 origin/main と同期
+PASS T7 gh api で存在確認（セキュリティ監査レポート.md 6704）
+PASS T8 raw URL 200
+
+RESULT: 8 passed, 0 failed

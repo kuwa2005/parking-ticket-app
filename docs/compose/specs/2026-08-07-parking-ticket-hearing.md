@@ -135,7 +135,7 @@
 - **質問**: 監査レポートは既に `docs/compose/reports/security-audit-2026-08-07.md` として作成済み・push 済み（コミット fcedcc2）です。「セキュリティ監査レポート.md」としてどう扱いますか？
 - **Why asked**: 要求（「セキュリティ監査レポート.md を作成し、ghに上げて」）は既に成果物として存在しており、意図のズレを防ぐため。名前・場所・既存との関係（新規作成 vs 置き換え）を確定する必要がある。
 - **Background**: 監査ラウンド（2026-08-07）で詳細レポートを作成し、F1〜F4 修正ラウンド完了後にコミット fcedcc2 で GitHub へ push 済み。ユーザーは「わかりやすい日本語名のファイル」を望んでいると推定。
-- **Result**: **「日本語名ファイルを新規作成（推奨）」を選択**。既存の詳細版（docs/compose/reports/security-audit-2026-08-07.md）は残し、リポジトリルートに **`セキュリティ監査レポート.md`**（読みやすい要約版・自己完結）を新規作成して push。README からリンクを追加する。
+- **Result**: **「日本語名ファイルを新規作成（推奨）」を選択**。既存の詳細版（docs/compose/reports/security-audit-2026-08-07.md）は残し、リポジトリルートに **`セキュリティ監査レポート.md`**（読みやすい要約版・自己完結）を新規作成して push。README からリンクを追加する。→ **Requirements Lock: Approved**（2026-08-07・ユーザー回答「Approved」）。実装完了: ファイル作成 → README リンク → コミット 9127051 → push → `gh api` + raw URL 200 で公開確認（仕様: docs/compose/specs/2026-08-07-security-audit-report-spec.md・受入結果: docs/compose/reports/2026-08-07-audit-report-acceptance.txt）。
 
 ---
 
