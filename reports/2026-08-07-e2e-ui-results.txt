@@ -16,6 +16,14 @@ PASS E7 total=3 after delete
 PASS E7 one row left
 PASS E8 total=0 after delete
 PASS E8 empty again
+PASS E9 day cell clickable
+PASS E9 day dialog opens
+PASS E9 dialog title has 1件・1枚
+PASS E9 dialog shows row
+PASS E10 month grand total updates to 3
+PASS E10 today row updates to 3
+PASS E11 today total=8 after refreshNow
+PASS E11 today list has 3 rows
 pageErrors: none
 
-RESULT: 17/17 passed
+RESULT: 25/25 passed

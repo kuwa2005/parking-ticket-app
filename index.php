@@ -94,6 +94,21 @@ body{padding-bottom:60px}
   </div>
 </div>
 
+<!-- 日詳細モーダル -->
+<div class="modal fade" id="day-dialog" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title h6" id="day-title"></h3>
+        <button type="button" class="btn-close" id="day-close" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <div id="day-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -150,6 +165,42 @@ $('pw-cancel').addEventListener('click', () => {
 });
 $('pw').addEventListener('keydown', e => { if (e.key === 'Enter') submitPw(); });
 
+const dayModal = new bootstrap.Modal($('day-dialog'), { backdrop: 'static', keyboard: false });
+let dayModalVisibleDate = null;
+$('day-dialog').addEventListener('hidden.bs.modal', () => { dayModalVisibleDate = null; });
+$('day-close').addEventListener('click', () => dayModal.hide());
+
+async function openDayDetail(date) {
+  const { status, data } = await api('GET', 'day&date=' + date);
+  if (status === 401) { showPwDialog(() => openDayDetail(date)); return; }
+  if (status !== 200) { toast('読み込みに失敗しました'); return; }
+  const dt = new Date(date + 'T00:00:00');
+  $('day-title').textContent = `${dt.getMonth() + 1}月${dt.getDate()}日（${data.records.length}件・${data.total}枚）`;
+  const list = $('day-list');
+  list.textContent = '';
+  if (data.records.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'text-body-secondary text-center py-3';
+    empty.textContent = '記録がありません';
+    list.append(empty);
+  } else {
+    for (const r of data.records) {
+      const row = document.createElement('div');
+      row.className = 'record-row';
+      const time = document.createElement('span');
+      time.className = 'text-body-secondary small';
+      time.textContent = r.created_at.slice(11, 16);
+      const mid = document.createElement('span');
+      mid.className = 'fw-semibold';
+      mid.textContent = r.count + ' 枚';
+      row.append(time, mid);
+      list.append(row);
+    }
+  }
+  dayModalVisibleDate = date;
+  dayModal.show();
+}
+
 function rowNode(r) {
   const row = document.createElement('div');
   row.className = 'record-row';
@@ -195,7 +246,12 @@ $('add-btn').addEventListener('click', async () => {
   const v = parseInt($('count').value, 10);
   if (!Number.isInteger(v) || v < 1 || v > 999) { toast('枚数は1〜999で入力してください'); return; }
   const { status } = await api('POST', 'add', { count: v });
-  if (status === 201) { $('count').value = '1'; toast('記録しました'); await loadToday(); }
+  if (status === 201) {
+    $('count').value = '1'; toast('記録しました');
+    await loadToday();
+    if (!$('panel-month').hidden) await loadMonthly();
+    if (dayModalVisibleDate !== null) await openDayDetail(dayModalVisibleDate);
+  }
   else if (status === 400) { toast('枚数は1〜999で入力してください'); }
   else { toast('エラーが発生しました'); }
 });
@@ -227,8 +283,11 @@ async function loadMonthly() {
     grand += d.total;
     const tr = document.createElement('tr');
     const tdDate = document.createElement('td');
-    tdDate.className = 'text-start';
+    tdDate.className = 'text-start day-link text-primary';
     tdDate.textContent = d.date.slice(5);
+    tdDate.style.cursor = 'pointer';
+    tdDate.style.textDecoration = 'underline';
+    tdDate.addEventListener('click', () => openDayDetail(d.date));
     const tdTotal = document.createElement('td');
     tdTotal.className = 'text-end';
     tdTotal.textContent = d.total;
@@ -263,6 +322,23 @@ $('tab-month').addEventListener('click', () => {
 
 $('today-date').textContent = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 loadToday();
+
+// 自動更新チェック: 60 秒ごとに version を取得し、変化があれば表示中のパネルを最新化
+let lastVersion = null;
+async function checkVersion() {
+  const { status, data } = await api('GET', 'version');
+  if (status !== 200) return;
+  const sig = data.count + ':' + data.maxId;
+  if (lastVersion !== null && lastVersion !== sig) {
+    await loadToday();
+    if (!$('panel-month').hidden) await loadMonthly();
+    if (dayModalVisibleDate !== null) await openDayDetail(dayModalVisibleDate);
+  }
+  lastVersion = sig;
+}
+window.__refreshNow = checkVersion;
+setInterval(checkVersion, 60000);
+checkVersion();
 </script>
 </body>
 </html>

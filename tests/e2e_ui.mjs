@@ -168,6 +168,46 @@ async function main() {
   check('E8 total=0 after delete', await waitFor("document.getElementById('today-total').textContent === '0'"));
   check('E8 empty again', await evaluate("document.getElementById('today-list').textContent.includes('まだ記録がありません')"));
 
+  // 今日の MM-DD（月別テーブルの日付セルと一致させる）
+  const md = await evaluate("(() => { const n = new Date(); return String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0'); })()");
+
+  // E9: 日別集計の日付セルクリック → 日詳細モーダルが開き、その日の行を表示
+  // 準備: 記録1件（今日・count=1）→ 月別テーブルに今日の行を作る
+  await evaluate("document.getElementById('count').value = '1';");
+  await evaluate("document.getElementById('add-btn').click();");
+  await waitFor("document.getElementById('today-total').textContent === '1'");
+  await evaluate("document.getElementById('tab-month').click();");
+  await waitFor("!document.getElementById('panel-month').hidden");
+  await evaluate("document.getElementById('month-btn').click();");
+  await waitFor("!document.getElementById('month-table').hidden");
+  const clicked = await evaluate(`(() => { const cell = [...document.querySelectorAll('#month-table tbody tr td.day-link')].find(td => td.textContent.trim() === '${md}'); if (!cell) return false; cell.click(); return true; })()`);
+  check('E9 day cell clickable', clicked);
+  check('E9 day dialog opens', await waitFor("document.getElementById('day-dialog')?.classList.contains('show')"));
+  check('E9 dialog title has 1件・1枚', await evaluate("document.getElementById('day-title')?.textContent?.includes('1件・1枚')"));
+  check('E9 dialog shows row', await evaluate("document.querySelectorAll('#day-list .record-row').length === 1 && document.getElementById('day-list').textContent.includes('1 枚')"));
+  // Bootstrap Modal は show 遷移完了まで hide() を guard するため遷移を待ってから閉じる
+  await sleep(800);
+  await evaluate("bootstrap.Modal.getInstance(document.getElementById('day-dialog')).hide();");
+  await waitFor("!document.getElementById('day-dialog').classList.contains('show')");
+
+  // E10: 集計表示中に記録 → 集計テーブルの合計も更新（1+2=3）
+  await evaluate("document.getElementById('count').value = '2';");
+  await evaluate("document.getElementById('add-btn').click();");
+  check('E10 month grand total updates to 3', await waitFor("document.querySelector('#month-table tbody tr:last-child td:last-child').textContent === '3'"));
+  check('E10 today row updates to 3', await evaluate(`(() => { const cell = [...document.querySelectorAll('#month-table tbody tr td.day-link')].find(td => td.textContent.trim() === '${md}'); return cell ? cell.parentElement.querySelector('td:last-child').textContent === '3' : false; })()`));
+
+  // E11: 他端末での記録を直接 add（fetch）→ __refreshNow() で今日一覧が最新化
+  if (await evaluate("typeof window.__refreshNow === 'function'")) {
+    await evaluate("fetch('api.php?action=add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({count:5})}).then(r => r.status)");
+    await evaluate("window.__refreshNow();");
+    check('E11 today total=8 after refreshNow', await waitFor("document.getElementById('today-total').textContent === '8'"));
+    check('E11 today list has 3 rows', await evaluate("document.querySelectorAll('#today-list .record-row').length === 3"));
+  } else {
+    check('E11 refreshNow exists', false);
+    check('E11 today total=8 after refreshNow', false);
+    check('E11 today list has 3 rows', false);
+  }
+
   console.log('pageErrors:', pageErrors.length ? '\n' + pageErrors.join('\n') : 'none');
 
   const passed = results.filter(Boolean).length;

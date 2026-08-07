@@ -10,5 +10,9 @@ PASS T6 other months excluded
 PASS T7 monthly param validation
 PASS T9 delete record
 PASS T10 delete nonexistent
+PASS T13 day records asc
+PASS T14 day empty
+PASS T15 day boundary
+PASS T16 version count/maxId
 
-12/12 passed
+16/16 passed
