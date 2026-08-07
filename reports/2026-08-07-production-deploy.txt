@@ -1,0 +1,54 @@
+# 本番デプロイ検証結果（2026-08-07）
+
+- 依頼: 「本番環境へデプロイして。必要な情報のみ使用して。」（ヒアリングログ Q19〜Q23・Requirements Lock Approved）
+- 本番環境: coreserver.jp 共有ホスティング（b45.coreserver.jp・SFTP 22・アカウント pcm・IP 202.172.25.46）
+- **最終配置先: `/virtual/pcm/public_html/debugprint.com/parking/`（https://debugprint.com/parking/）**
+- 仕様: docs/compose/specs/2026-08-07-production-deploy-spec.md / テストプログラム: tests/production_check.sh
+
+## 実施内容
+
+1. 本番用バンドル作成（/tmp/park_deploy）: index.php / api.php / lib/{config,db,store}.php / data/.htaccess — **本番の ADMIN_PW はランダム生成値（英数字12桁）に変更済み・値はリポジトリ外で管理**
+2. SFTP（lftp・ポート22）で debugprint.com の `parking/` サブディレクトリへ配置（既存サイト: ルート index.html・about/・projects/ 等は一切変更なし）
+3. 途中、ユーザー指示により docomo2.com/parking/ へ一時配置したが、「https://debugprint.com/parking/ で動かして」「/virtual/pcm/public_html/debugprint.com/parking が正解」の再指示を受け、**debugprint.com/parking/ に最終確定**・docomo2.com/parking/ は撤回・削除
+4. 環境プローブ（probe.php・検証後に削除済み）と受入テストを実サーバーに対して実行
+
+## 本番環境の実測
+
+- PHP **8.5.2**・**pdo_sqlite: yes**（SQLite 継続・MySQL/PostgreSQL 不使用）
+- display_errors: Off・expose_php: Off（ホスト既定で良好）
+- タイムゾーンはコード内 Asia/Tokyo 固定のためホスト TZ 非依存
+
+## 受入テスト実行結果（tests/production_check.sh https://debugprint.com/parking）
+
+実行コマンド: `PROD_PW=<本番PW> bash tests/production_check.sh "https://debugprint.com/parking"`
+
+```
+PASS T1 GET / → 200 + UI
+PASS T2 today → total 0
+PASS T3 add → 201 (id=1)
+PASS T4 today → total 2
+PASS T5 login → 200
+PASS T6 delete → 204・total 0 復元
+PASS T7 /data/parking.db → 403
+PASS T8 誤PW → 401（1181ms）
+PASS T9 セキュリティヘッダあり
+PASS T10 PHP 8.x + pdo_sqlite (PHP=8.5.2 pdo_sqlite=yes display_errors=[''] expose_php=)
+
+RESULT: 10 passed, 0 failed
+```
+
+- T1〜T6: 記録（add）→ 集計（today）→ 認証（login）→ 削除（delete）の一連の操作が本番で正常動作し、**テスト後に total=0 へ復元（本番は空の状態）**
+- T7: data/.htaccess が共有ホスト（Apache・AllowOverride 有効）で機能し `/parking/data/parking.db` は **403**
+- T8: 誤PWログインは **401・1181ms** — F1（sleep(1) スロットル）が共有ホストでも動作
+- T9: F4 セキュリティヘッダ（X-Content-Type-Options: nosniff / X-Frame-Options: DENY）送信確認
+
+## 既存サイト無傷確認
+
+- https://debugprint.com/ → 200（<title>KURAGASHI — Software Engineer / AI Development</title>・ポートフォリオ現状維持）
+- https://debugprint.com/about/ → 200
+
+## 注意事項
+
+- 本番の管理PW は新値（デモ用 1234 ではない）: 値は /tmp/park_prod_pw.txt とチャットでユーザーへ通知済み。リポジトリ・本レポートには記載しない
+- データは SQLite のまま空から開始: 初回 API 呼び出しで `/parking/data/parking.db` が自動作成（バックアップは当ファイルのダウンロードで実施）
+- SFTP 接続情報（パスワード）は本レポートに記載しない（要件 R6）

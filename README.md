@@ -54,6 +54,8 @@ define('ADMIN_PW', '1234');
 
 Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルのみで動作します。完全オフラインのLANで使う場合は Bootstrap をローカル配置に切り替えてください。
 
+**本番デプロイ実績（2026-08-07）**: coreserver.jp 共有ホスティングのサブディレクトリにデプロイし、受入テスト 10/10 PASS（記録・集計・認証・削除・DB直アクセス拒否・誤PWスロットル・セキュリティヘッダ）を確認済み。公開 URL は https://debugprint.com/parking/ （詳細: reports/2026-08-07-production-deploy.txt）。デプロイ時は必ず `lib/config.php` の `ADMIN_PW` を本番用に変更してください（本番では変更済み）。
+
 ## ディレクトリ構成
 
 ```

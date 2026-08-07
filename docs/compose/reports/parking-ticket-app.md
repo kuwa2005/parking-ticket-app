@@ -93,16 +93,27 @@ docker compose logs -f         # ログ確認
 
 ## Verification
 
-3つのテストスイートをすべて実行し、全PASSを確認（2026-08-07）。結果は `reports/` に記録済み。
+テストスイートをすべて実行し、全PASSを確認（2026-08-07）。結果は `reports/` に記録済み。
 
 | スイート | 内容 | 結果 |
 |---|---|---|
 | 単体（`tests/run_tests.php`） | T1〜T12: 記録の妥当性・今日の合計/一覧・月別集計（境界含む）・削除・TZ固定 | **12/12 PASS** |
-| スモーク（`tests/smoke_test.sh`） | HTTP 12ケース: 200/201/400/401/200/204/404、PWログイン、認証スコープ | **12/12 PASS** |
+| スモーク（`tests/smoke_test.sh`） | HTTP 14ケース: 200/201/400/401/200/204/404、PWログイン、認証スコープ、**誤PWスロットル(F1)・セキュリティヘッダ(F4)** | **14/14 PASS** |
 | E2E（`tests/e2e_ui.mjs`） | 実ブラウザ 17チェック: 初期表示→記録→PWダイアログ→誤PW/正PW→月別テーブル→削除 | **17/17 PASS**（ページ例外なし） |
-| Docker（`tests/docker_check.sh`） | デプロイ 12ケース: コンテナ状態/restart政策/API/DB書込/**直アクセス403**/再起動永続化/削除復元 | **12/12 PASS** |
+| Docker（`tests/docker_check.sh`） | デプロイ 17ケース: コンテナ状態/restart政策/API/DB書込/**直アクセス403**/再起動永続化/削除復元/セキュリティ設定(F2/F3/F4) | **17/17 PASS** |
+| 本番（`tests/production_check.sh`） | **https://debugprint.com/parking/** 実サーバー 10ケース: 記録→集計→認証→削除、DB直アクセス403、誤PWスロットル、セキュリティヘッダ、PHP環境 | **10/10 PASS** |
 
-証跡: `reports/2026-08-07-unit-test-results.txt` / `reports/2026-08-07-smoke-test-results.txt` / `reports/2026-08-07-e2e-ui-results.txt` / `reports/2026-08-07-docker-verification.txt`
+証跡: `reports/2026-08-07-unit-test-results.txt` / `reports/2026-08-07-smoke-test-results.txt` / `reports/2026-08-07-e2e-ui-results.txt` / `reports/2026-08-07-docker-verification.txt` / `reports/2026-08-07-production-deploy.txt`
+
+## Production Deployment（2026-08-07）
+
+- **公開 URL: https://debugprint.com/parking/**（coreserver.jp 共有ホスティング・SFTP で配置）
+- サブディレクトリ配置のため既存サイト（debugprint.com ルートのポートフォリオ）には無変更。ユーザー確認済み（ヒアリングログ Q22/Q23・最終指示「/virtual/pcm/public_html/debugprint.com/parking が正解」）
+- **本番 ADMIN_PW はデモ用 1234 とは別のランダム値に変更**（値はリポジトリ外・ユーザーへ直接通知）
+- DB は SQLite のまま空から開始（初回 API 呼び出しで `data/parking.db` 自動作成）。data/.htaccess により直アクセス 403 を実測
+- 本番環境: PHP 8.5.2・pdo_sqlite 有効・display_errors Off・expose_php Off。F1（誤PW 401・1181ms）と F4（セキュリティヘッダ）も共有ホストで動作確認
+- 途中 docomo2.com/parking/ に一時配置したが、ユーザー再指示で debugprint.com/parking/ に最終確定（docomo2 分は削除）
+- 仕様: `docs/compose/specs/2026-08-07-production-deploy-spec.md`（Q19〜Q23 はヒアリングログに記録）
 
 ## Journey Log
 
@@ -112,11 +123,16 @@ docker compose logs -f         # ログ確認
 - [pivot] CSS は当初「標準CSSのみ」で設計したが、要件ロック後に「Bootstrap（CDN版）」指示があり切替（ローカル配置 assets/ は試行後に破棄）。
 - [pivot] 「サーバーが立ち上がってない」の指摘で Docker デプロイを追加（Q13〜Q15）。php -S はシェル依存のため消えやすく、Docker の `restart: unless-stopped` に切り替えた。ついでに php -S 運用の「`/data/parking.db` が直接ダウンロード可能」という実証済みの穴が Apache 化で塞がった。
 - [dead end] Docker ビルドで `docker-php-ext-install pdo_sqlite` が `Package 'sqlite3' not found` で失敗。実は `php:8.3-apache` ベースイメージに pdo_sqlite/sqlite3 は**最初から同梱**されており（`php -m` で確認）、ビルド行は不要だった。→ 該当行を削除して解決。
+- [lesson] 共有ホスティングのデプロイ先は「ドキュメントルート = 既存サイト」であることが多く、ルート配置は既存サイトと衝突する。SFTP の実パスは chroot のため絶対パス（/public_html/...）が通らず、ホーム相対パス（public_html/...）で操作する必要がある（coreserver.jp で実証）。
+- [pivot] 配置先はユーザー指示の変遷で確定: debugprint.com/parking/（自律決定）→ docomo2.com/parking/（ユーザー指示）→ 最終的に「/virtual/pcm/public_html/debugprint.com/parking が正解」で **debugprint.com/parking/ に確定**。一時配置した docomo2.com/parking/ は撤回・削除。
+- [lesson] 本番の管理PW は公開リポジトリ記載のデモ値（1234）のままにせず、ランダム値に変更する（値はリポジトリ外で管理）。
 
 ## Source Materials
 
 | ファイル | 役割 | 備考 |
 |---|---|---|
-| `docs/compose/specs/2026-08-07-parking-ticket-hearing.md` | ヒアリングログ Q1〜Q15 | 要件の由来（Q13〜Q15: Docker） |
+| `docs/compose/specs/2026-08-07-parking-ticket-hearing.md` | ヒアリングログ Q1〜Q23 | 要件の由来（Q13〜Q15: Docker・Q19〜Q23: 本番デプロイ） |
 | `docs/compose/specs/2026-08-07-parking-ticket-app-spec.md` | 設計仕様 [S1]〜[S12] | Bootstrap CDN + Docker デプロイを反映 |
+| `docs/compose/specs/2026-08-07-security-audit-report-spec.md` | 監査レポート配布の要件・テスト仕様 | 受入テスト: tests/acceptance_audit_report.sh |
+| `docs/compose/specs/2026-08-07-production-deploy-spec.md` | 本番デプロイの要件・テスト仕様 | 受入テスト: tests/production_check.sh |
 | `docs/compose/plans/2026-08-07-parking-ticket-app.md` | 実装計画（6タスク） | E2E 追加・根因調査の記録を追記 |

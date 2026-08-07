@@ -131,11 +131,38 @@
 - **Result**: **Public** を選択（ユーザー判断）。README に「PW は初期値 1234、デプロイ時は必ず lib/config.php の ADMIN_PW を変更すること」と明記して注意喚起する。→ フォローアップでユーザーが「パスワードはデモ用なのでREADMEに記載して良い。個人情報やクリティカルな情報も扱っていない」と明言し、README に **PW=1234 をデモ用として明記**する方針に確定（個人情報・クリティカル情報を扱わないため公開で問題なし）。
 
 ## Q18. セキュリティ監査レポートの日本語名ファイル作成（監査・修正完了後の追加指示）
-
 - **質問**: 監査レポートは既に `docs/compose/reports/security-audit-2026-08-07.md` として作成済み・push 済み（コミット fcedcc2）です。「セキュリティ監査レポート.md」としてどう扱いますか？
 - **Why asked**: 要求（「セキュリティ監査レポート.md を作成し、ghに上げて」）は既に成果物として存在しており、意図のズレを防ぐため。名前・場所・既存との関係（新規作成 vs 置き換え）を確定する必要がある。
 - **Background**: 監査ラウンド（2026-08-07）で詳細レポートを作成し、F1〜F4 修正ラウンド完了後にコミット fcedcc2 で GitHub へ push 済み。ユーザーは「わかりやすい日本語名のファイル」を望んでいると推定。
 - **Result**: **「日本語名ファイルを新規作成（推奨）」を選択**。既存の詳細版（docs/compose/reports/security-audit-2026-08-07.md）は残し、リポジトリルートに **`セキュリティ監査レポート.md`**（読みやすい要約版・自己完結）を新規作成して push。README からリンクを追加する。→ **Requirements Lock: Approved**（2026-08-07・ユーザー回答「Approved」）。実装完了: ファイル作成 → README リンク → コミット 9127051 → push → `gh api` + raw URL 200 で公開確認（仕様: docs/compose/specs/2026-08-07-security-audit-report-spec.md・受入結果: docs/compose/reports/2026-08-07-audit-report-acceptance.txt）。
+
+## Q19. 本番デプロイ（公開環境での運用可否）
+- **質問**: アプリは元々「LAN 内のみ」想定ですが、本番先（coreserver.jp 共有ホスティング）は公開ドメインです。インターネットに公開してよいか？（選択肢: 公開でOK / アクセス制限をかける / 公開しない）
+- **Why asked**: README の想定（LAN内・ログインなし）と、公開ドメインへのデプロイという本番指示の前提が異なるため。公開に伴うセキュリティ方針（PW の強度）を確定する必要がある。
+- **Background**: ユーザー指示「本番環境へデプロイして。必要な情報のみ使用して。」（2026-08-07・第3ラウンド）。接続情報は b45.coreserver.jp（SFTP 22 / アカウント pcm / docroot 記載）。MySQL・PostgreSQL の情報もあるが、アプリは SQLite のため不要（「必要な情報のみ使用」に合致）。
+- **Result**: **ユーザー不在（[Never-Ask]）のため自律決定: 「公開でOK」としてデプロイを実行**。理由: ユーザーが公開ドメインの docroot を明示指定してデプロイを依頼しており、公開が意図に反するとは考えにくい。ただし公開リスク低減のため管理 PW を新値に変更する（Q20）。
+
+## Q20. 本番の管理パスワード
+- **質問**: 管理 PW（現在 1234・公開リポジトリに記載済み）は本番でどうするか？（選択肢: 新しいPWに変更 / 1234のまま）
+- **Why asked**: リポジトリが Public で 1234 が誰でも既知のため、公開サーバーでは総当たり・不正操作の対象になる。本番用に分離するか、デモのまま運用するかを確定する必要がある。
+- **Background**: F1 修正（誤PW 1秒遅延）で総当たりは最低約2.8時間に抑えられるが、4桁の既知 PW は公開環境では不十分。
+- **Result**: **ユーザー不在（[Never-Ask]）のため自律決定: 「新しいPWに変更」**。本番の lib/config.php の ADMIN_PW をランダム生成値（英数字12桁）に設定。**値は公開リポジトリ・ドキュメントに一切記載しない**（/tmp/park_prod_pw.txt に保存し、チャットでユーザーへ直接通知）。
+
+## Q21. 本番のデータ（SQLite）
+- **質問**: 本番のデータをどうするか？（選択肢: 空から開始 / ローカルの既存記録6件を移行）
+- **Why asked**: ローカルの data/parking.db には検証・操作で作られたテスト記録が含まれ、本番へ移すべきか判断が必要。
+- **Background**: ユーザー明言「データベースはSQLiteのままでよい」（2026-08-07）→ 本番も SQLite・MySQL/PostgreSQL は不使用（「必要な情報のみ使用」）。
+- **Result**: **自律決定: 「空のDBから開始」**（data/parking.db はアップロードしない。初回 API 呼び出し時に自動作成）。テスト記録を本番に持ち込まない。
+
+## Q22. 本番の配置場所（サブディレクトリ）
+- **質問**: docroot（/public_html/debugprint.com）には既にポートフォリオサイトが稼働中。アプリをどこに配置するか？（選択肢: サブディレクトリ / ルート置き換え / サブドメイン新設）
+- **Why asked**: 指定 docroot が既存サイト（index.html・about/・projects/ 等）で、ルートにアプリを配置すると既存サイトと衝突するため。
+- **Background**: 監査・実装済みのアプリは相対 URL（fetch('api.php?…')）のためサブディレクトリでも正常動作する（確認済み）。
+- **Result**: 第1回答はユーザー不在（[Never-Ask]）のため自律決定「debugprint.com のサブディレクトリ parking/ に配置」→ その後ユーザーから **「/virtual/pcm/public_html/docomo2.com」（ドメイン変更指示）→「/virtual/pcm/public_html/docomo2.com/parking でよい」（配置先確定指示）**。docomo2.com のルートには PukiWiki が稼働中のため、**アプリは docomo2.com のサブディレクトリ `parking/` に配置**（既存サイト無変更・最小影響）。debugprint.com/parking/ への一時配置は撤回・削除する。
+
+## Q23. Requirements Lock（本番デプロイ）
+- **質問**: 本番デプロイ（配置先・PW変更・SQLite・空DB開始・既存サイト不変更・検証実施）をロックしてよいか？
+- **Result**: **Approved**（ユーザー明言「/virtual/pcm/public_html/docomo2.com/parking でよい」2026-08-07）。→ 実行フェーズへ。**追記（最終確定）**: 配置・検証後にユーザー再指示「https://docomo2.com/parking/ ではなく、https://debugprint.com/parking/ で動かして」→「/virtual/pcm/public_html/debugprint.com/parking が正解」により、**最終配置先は `public_html/debugprint.com/parking/`（https://debugprint.com/parking/）に確定**。docomo2.com/parking/ は撤回・削除済み。仕様: docs/compose/specs/2026-08-07-production-deploy-spec.md・検証結果: reports/2026-08-07-production-deploy.txt。
 
 ---
 
