@@ -78,6 +78,19 @@ switch ($action) {
         respond(200, ['ok' => true]);
         break;
     }
+    case 'day': {
+        require_auth();
+        $date = $_GET['date'] ?? null;
+        if (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            respond(400, ['error' => 'invalid date']);
+        }
+        respond(200, get_day($db, $date));
+        break;
+    }
+    case 'version': {
+        respond(200, get_db_version($db));
+        break;
+    }
     default:
         respond(404, ['error' => 'unknown action']);
 }

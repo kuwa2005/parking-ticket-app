@@ -97,6 +97,47 @@ else
   ng "14 index.php セキュリティヘッダ" "XFO=$XFO XCT=$XCT RP=$RP"
 fi
 
+# 15. day 未認証（別クッキー）→ 401
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR2" "$BASE/api.php?action=day&date=$today_ymd")
+if [ "$code" = "401" ]; then ok "15 day no-auth 401"; else ng "15 day no-auth" "code=$code"; fi
+
+# 16. day 不正な日付形式 → 400
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api.php?action=day&date=2026/08/07")
+if [ "$code" = "400" ]; then ok "16 day invalid date 400"; else ng "16 day invalid date" "code=$code"; fi
+
+# 17. day 認証済み（今日・2件追加後）→ 200 + total 2
+resp2=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"count":1}' "$BASE/api.php?action=add")
+id2=$(printf '%s' "$resp2" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+resp3=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"count":1}' "$BASE/api.php?action=add")
+id3=$(printf '%s' "$resp3" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+dayresp=$(curl -s -b "$JAR" "$BASE/api.php?action=day&date=$today_ymd")
+if printf '%s' "$dayresp" | grep -q '"total":2' && printf '%s' "$dayresp" | grep -q '"records":\['; then
+  ok "17 day authed 200 + total 2"
+else
+  ng "17 day authed" "$dayresp"
+fi
+
+# 18. version → 200 + count≥2・maxId≥1（認証不要）
+ver=$(curl -s "$BASE/api.php?action=version")
+vcount=$(printf '%s' "$ver" | sed -n 's/.*"count":\([0-9]*\).*/\1/p')
+vmax=$(printf '%s' "$ver" | sed -n 's/.*"maxId":\([0-9]*\).*/\1/p')
+if [ -n "$vcount" ] && [ "$vcount" -ge 2 ] && [ -n "$vmax" ] && [ "$vmax" -ge 1 ]; then
+  ok "18 version 200 (count=$vcount maxId=$vmax)"
+else
+  ng "18 version" "$ver"
+fi
+
+# 19. 削除後に version の count が減る
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X DELETE "$BASE/api.php?action=delete&id=$id2")
+ver2=$(curl -s "$BASE/api.php?action=version")
+vcount2=$(printf '%s' "$ver2" | sed -n 's/.*"count":\([0-9]*\).*/\1/p')
+if [ "$code" = "204" ] && [ "$vcount2" = "$((vcount - 1))" ]; then
+  ok "19 version count decrements"
+else
+  ng "19 version decrement" "code=$code count=$vcount->$vcount2"
+fi
+curl -s -o /dev/null -b "$JAR" -X DELETE "$BASE/api.php?action=delete&id=$id3" # 後片付け（today=0 維持）
+
 echo
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]
