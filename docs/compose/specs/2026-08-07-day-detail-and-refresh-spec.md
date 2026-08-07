@@ -134,5 +134,5 @@
 
 - reports/2026-08-07-unit-test-results.txt（12→16 ケース）
 - reports/2026-08-07-smoke-test-results.txt（14→19 ケース）
-- reports/2026-08-07-e2e-ui-results.txt（17→20 チェック）
+- reports/2026-08-07-e2e-ui-results.txt（17→25 チェック・実測）
 - reports/2026-08-07-production-verify.txt（本番受入・新機能確認）
