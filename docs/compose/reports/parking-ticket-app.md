@@ -97,13 +97,15 @@ docker compose logs -f         # ログ確認
 
 | スイート | 内容 | 結果 |
 |---|---|---|
-| 単体（`tests/run_tests.php`） | T1〜T12: 記録の妥当性・今日の合計/一覧・月別集計（境界含む）・削除・TZ固定 | **12/12 PASS** |
+| 単体（`tests/run_tests.php`） | T1〜T12: 記録の妥当性・今日の合計/一覧（**DEMO 化で昇順**）・月別集計（境界含む）・削除・TZ固定 | **12/12 PASS** |
+| シード（`tests/seed_demo_test.php`） | B1〜B8: デモデータ 401件/68日/count=1/日5〜10・中央値5/時刻範囲/差し替え/冪等/温存 | **8/8 PASS** |
 | スモーク（`tests/smoke_test.sh`） | HTTP 14ケース: 200/201/400/401/200/204/404、PWログイン、認証スコープ、**誤PWスロットル(F1)・セキュリティヘッダ(F4)** | **14/14 PASS** |
-| E2E（`tests/e2e_ui.mjs`） | 実ブラウザ 17チェック: 初期表示→記録→PWダイアログ→誤PW/正PW→月別テーブル→削除 | **17/17 PASS**（ページ例外なし） |
-| Docker（`tests/docker_check.sh`） | デプロイ 17ケース: コンテナ状態/restart政策/API/DB書込/**直アクセス403**/再起動永続化/削除復元/セキュリティ設定(F2/F3/F4) | **17/17 PASS** |
-| 本番（`tests/production_check.sh`） | **https://debugprint.com/parking/** 実サーバー 10ケース: 記録→集計→認証→削除、DB直アクセス403、誤PWスロットル、セキュリティヘッダ、PHP環境 | **10/10 PASS** |
+| E2E（`tests/e2e_ui.mjs`） | 実ブラウザ 17チェック: 初期表示→記録→PWダイアログ→誤PW/正PW→月別テーブル→削除（**E7 は昇順対応**） | **17/17 PASS**（ページ例外なし） |
+| 本番（`tests/production_check.sh`） | **https://debugprint.com/parking/** 実サーバー 10ケース（**T0相対化**: デモデータ投入済みでも実データを壊さない）: 記録→集計→認証→削除、DB直アクセス403、誤PWスロットル、セキュリティヘッダ、一時スクリプト残存なし | **10/10 PASS** |
 
-証跡: `reports/2026-08-07-unit-test-results.txt` / `reports/2026-08-07-smoke-test-results.txt` / `reports/2026-08-07-e2e-ui-results.txt` / `reports/2026-08-07-docker-verification.txt` / `reports/2026-08-07-production-deploy.txt`
+証跡: `reports/2026-08-07-unit-test-results.txt` / `reports/2026-08-07-seed-demo-test.txt` / `reports/2026-08-07-smoke-test-results.txt` / `reports/2026-08-07-e2e-ui-results.txt` / `reports/2026-08-07-production-verify.txt` / `reports/2026-08-07-production-deploy.txt`
+
+※ Docker検証（`tests/docker_check.sh`）は Docker テスト環境の終了（2026-08-07・ユーザー指示）に伴い廃止。環境レベルの検証は本番受入テストが担う（直前の Docker 検証 17/17 PASS は `reports/2026-08-07-docker-verification.txt`）。
 
 ## Production Deployment（2026-08-07）
 

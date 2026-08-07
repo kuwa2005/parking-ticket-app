@@ -43,12 +43,12 @@ add_record($db, 2, new DateTimeImmutable('2026-08-07 09:01:00', $tz));
 add_record($db, 1, new DateTimeImmutable('2026-08-07 09:02:00', $tz));
 check('T3 today total', get_today($db, new DateTimeImmutable('2026-08-07 10:00:00', $tz))['total'] === 6);
 
-// T4: 一覧の順序（新しい順・同刻は id 降順）
+// T4: 一覧の順序（時間昇順・同刻は id 昇順 — DEMO 化仕様 R5）
 $r1 = add_record($db, 1, new DateTimeImmutable('2026-08-07 10:00:00', $tz));
 $r2 = add_record($db, 2, new DateTimeImmutable('2026-08-07 10:00:00', $tz));
 $r3 = add_record($db, 3, new DateTimeImmutable('2026-08-07 11:00:00', $tz));
 $ids = array_column(get_today($db, new DateTimeImmutable('2026-08-07 12:00:00', $tz))['records'], 'id');
-check('T4 today order desc', array_slice($ids, 0, 3) === [$r3['id'], $r2['id'], $r1['id']], 'ids=' . json_encode($ids));
+check('T4 today order asc', array_slice($ids, -3) === [$r1['id'], $r2['id'], $r3['id']], 'ids=' . json_encode($ids));
 
 // T8: 日付境界（23:59:59 は昨日扱い、00:00:00 は今日扱い）
 add_record($db, 5, new DateTimeImmutable('2026-08-07 23:59:59', $tz));

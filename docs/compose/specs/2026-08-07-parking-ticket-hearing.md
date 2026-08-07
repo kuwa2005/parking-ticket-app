@@ -164,6 +164,22 @@
 - **質問**: 本番デプロイ（配置先・PW変更・SQLite・空DB開始・既存サイト不変更・検証実施）をロックしてよいか？
 - **Result**: **Approved**（ユーザー明言「/virtual/pcm/public_html/docomo2.com/parking でよい」2026-08-07）。→ 実行フェーズへ。**追記（最終確定）**: 配置・検証後にユーザー再指示「https://docomo2.com/parking/ ではなく、https://debugprint.com/parking/ で動かして」→「/virtual/pcm/public_html/debugprint.com/parking が正解」により、**最終配置先は `public_html/debugprint.com/parking/`（https://debugprint.com/parking/）に確定**。docomo2.com/parking/ は撤回・削除済み。仕様: docs/compose/specs/2026-08-07-production-deploy-spec.md・検証結果: reports/2026-08-07-production-deploy.txt。
 
+## Q24. デモデータのリポジトリ反映方法（本番直接改修の反映ラウンド）
+- **質問**: 本番で投入したデモデータ（401件・2026-06-01〜08-07・各記録1枚・日5〜10件・時刻09:00〜17:05）をリポジトリにどう反映するか？（選択肢: シードスクリプト追加 / 本番 parking.db を同梱 / ドキュメントのみ）
+- **Why asked**: data/parking.db は gitignore 済みの runtime データのため、そのままコミットできない。リポジトリからデモデータを再現できる手段を確定する必要がある。
+- **Background**: ユーザーが本番（debugprint.com/parking/）を直接改修（DEMO 化: タイトル・PWダイアログ・デモデータ・並び順）し、「本番環境側で直接改修したので、こちらも反映して」と指示。本番 parking.db を実測: 401件・2026-06-01 09:32〜2026-08-07 16:19・全件 count=1・68日・日5〜10件（中央値5）・時刻09:00〜17:05・全件ユニーク分。
+- **Result**: ユーザー回答「**データは条件通りに適当にこちらで作ってOK**」→ **シードスクリプト方式を採用**（scripts/seed_demo.php・決定的生成・統計は本番実測と一致。DB バイナリはコミットしない）。
+
+## Q25. ローカル / Docker の DB へのデモデータ投入
+- **質問**: ローカル data/parking.db（現在6件・今日の記録）と Docker コンテナの DB にも今すぐデモデータを投入するか？（既存当日データは差し替え）
+- **Why asked**: シード実行はローカルの実データ（今日の6件）をデモデータへ置き換える破壊的操作のため、事前に確認する必要がある。
+- **Background**: Docker は ./data をバインドマウントしているため、ローカル data/parking.db へのシードで Docker 側にも同時反映される（二重投入不要）。
+- **Result**: ユーザー回答「**適当に**」→ 自律判断: **ローカル data/parking.db へシードを実行**（事前に /tmp へバックアップ・範囲外レコードは温存・範囲内は差し替え。本番と同じデモデータでどこでも動作）。
+
+## Q26. Requirements Lock（DEMO 化）
+- **質問**: DEMO 化の変更（タイトル/見出し(DEMO)・PWダイアログ表示/初期値 1234・注記・get_today 時間昇順・シードスクリプト・ローカル/Docker シード適用・全テスト回帰）をロックしてよいか？
+- **Result**: **Approved**（2026-08-07・question ツール回答）。→ 実行フェーズへ。仕様: docs/compose/specs/2026-08-07-demo-mode-spec.md・検証結果: reports/2026-08-07-demo-mode-*.txt。
+
 ---
 
 ## 確定要件サマリ

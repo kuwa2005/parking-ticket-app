@@ -20,11 +20,11 @@ function add_record(PDO $db, $count, ?DateTimeImmutable $now = null): ?array {
     return ['id' => (int)$db->lastInsertId(), 'count' => $count, 'created_at' => $createdAt];
 }
 
-/** 指定日（既定: 今日 JST）の記録一覧（新しい順・同刻は id 降順）と合計。 */
+/** 指定日（既定: 今日 JST）の記録一覧（時間昇順・同刻は id 昇順）と合計。 */
 function get_today(PDO $db, ?DateTimeImmutable $now = null): array {
     $now = $now ?? now_jst();
     $date = $now->format('Y-m-d');
-    $stmt = $db->prepare('SELECT id, count, created_at FROM records WHERE created_at LIKE ? ORDER BY created_at DESC, id DESC');
+    $stmt = $db->prepare('SELECT id, count, created_at FROM records WHERE created_at LIKE ? ORDER BY created_at ASC, id ASC');
     $stmt->execute([$date . '%']);
     $records = array_map(
         fn($r) => ['id' => (int)$r['id'], 'count' => (int)$r['count'], 'created_at' => $r['created_at']],

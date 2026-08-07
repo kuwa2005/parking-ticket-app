@@ -1,7 +1,3 @@
-駐車券記録アプリ — UI E2Eテスト結果（F1-F4 修正後・再実行）
-実行: node tests/e2e_ui.mjs（ヘッドレスchrome + CDP、PARK_DB_PATH=/tmp/park_e2e.db）
-日時: 2026-08-07
-
 connected to existing chrome
 PASS E1 initial total 0
 PASS E1 empty message
@@ -23,4 +19,3 @@ PASS E8 empty again
 pageErrors: none
 
 RESULT: 17/17 passed
-※ 監査F1（誤PW時1秒遅延）は E5 の waitFor ポーリングで正常動作

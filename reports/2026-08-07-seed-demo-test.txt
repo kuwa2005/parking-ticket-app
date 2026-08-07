@@ -1,0 +1,10 @@
+PASS B1 total 401 — total=402 (401 demo + 1 kept out-of-range)
+PASS B2 range 06-01..08-07 68days — {"mn":"2026-06-01","mx":"2026-08-07","d":68}
+PASS B3 all count=1
+PASS B4 per-day 5..10 median5 — min=5 max=7 median=5
+PASS B5 time range + unique minutes — {"mn":"09:02:21","mx":"17:04:26"} dup=0
+PASS B6 same-range replaced — old_record=0 today_count=5
+PASS B8 out-of-range kept — kept=1
+PASS B7 idempotent — total2=402 kept2=1
+
+8/8 passed

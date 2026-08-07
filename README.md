@@ -5,7 +5,7 @@
 - 各端末にはデータを保存せず、サーバー側の SQLite に永続化
 - モバイルファーストの日本語UI（Bootstrap 5.3.3）
 - PHP + SQLite(PDO) の標準構成のみ — 汎用レンタルサーバーにも置ける
-- Docker ワンコマンドで起動（自動起動・自動復帰付き）
+- デモ運用（本番 https://debugprint.com/parking/ 稼働中・Docker はローカル開発用に利用可）
 
 ## 機能
 
@@ -17,9 +17,20 @@
 | 日別集計 | 年・月を指定して日別の合計と月合計を表示 | 必要 |
 | 削除 | 誤記録の削除 | 必要 |
 
-パスワードはデモ用の簡易パスワードで、初期値は **`1234`** です（誤操作防止の簡易ゲート）。このアプリは個人情報やクリティカルな情報を扱わないため、README への記載を許容しています。実運用に使う場合は変更することを推奨します（変更方法は下記）。
+パスワードはデモ用の簡易パスワードで、初期値は **`1234`** です（誤操作防止の簡易ゲート）。このアプリは個人情報やクリティカルな情報を扱わないため、README への記載を許容しています。DEMO 化（2026-08-07）に伴い、PW ダイアログに「パスワード(1234)」を表示し、入力欄の初期値も 1234 になります（注記「デモ用のためパスワードは形式的なものです。」）。実運用に使う場合は変更することを推奨します（変更方法は下記）。
 
-## クイックスタート（Docker）
+## デモデータ
+
+デモデータ（2026-06-01〜2026-08-07 の 68 日・合計 401 件・各記録 1 枚・日ごと 5〜10 件・時刻 09:00〜17:05）はスクリプトで生成します。決定的生成（同じ結果を再現）・範囲内の既存データは差し替え・冪等です。
+
+```bash
+php scripts/seed_demo.php                          # 既定 data/parking.db へ投入
+PARK_DB_PATH=/path/to/parking.db php scripts/seed_demo.php   # 任意の DB へ投入
+```
+
+本番（https://debugprint.com/parking/）にも同じシードでデモデータ 401 件を投入済みです（2026-08-07）。
+
+## クイックスタート（Docker・ローカル開発用）
 
 ```bash
 docker compose up -d --build
@@ -30,6 +41,8 @@ docker compose up -d --build
 - データベースはホスト側の `./data/parking.db` に永続化されます（コンテナを作り直しても消えません）
 - コンテナは `restart: unless-stopped` なので、起動時に自動起動・クラッシュ時は自動復帰します
 - 停止: `docker compose down`（データは `./data` に残ります）
+
+※ Docker テスト環境は 2026-08-07 に終了しました（本番 https://debugprint.com/parking/ が運用環境）。上記はローカルでの動作確認用です。
 
 ## 使い方
 
@@ -54,7 +67,7 @@ define('ADMIN_PW', '1234');
 
 Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルのみで動作します。完全オフラインのLANで使う場合は Bootstrap をローカル配置に切り替えてください。
 
-**本番デプロイ実績（2026-08-07）**: coreserver.jp 共有ホスティングのサブディレクトリにデプロイし、受入テスト 10/10 PASS（記録・集計・認証・削除・DB直アクセス拒否・誤PWスロットル・セキュリティヘッダ）を確認済み。公開 URL は https://debugprint.com/parking/ （詳細: reports/2026-08-07-production-deploy.txt）。デプロイ時は必ず `lib/config.php` の `ADMIN_PW` を本番用に変更してください（本番では変更済み）。
+**本番デプロイ実績（2026-08-07）**: coreserver.jp 共有ホスティングのサブディレクトリにデプロイし、受入テスト 10/10 PASS（記録・集計・認証・削除・DB直アクセス拒否・誤PWスロットル・セキュリティヘッダ）を確認済み。公開 URL は https://debugprint.com/parking/ （詳細: reports/2026-08-07-production-deploy.txt）。同日、ユーザーによる本番直接改修（DEMO 化）をリポジトリへ反映し、本番を正規シードで再投入・受入テスト 10/10 PASS（reports/2026-08-07-production-verify.txt）。**DEMO 運用のため本番の管理パスワードは 1234 です**（デモ用のためパスワードは形式的なもの — UI に注記表示）。
 
 ## ディレクトリ構成
 
@@ -79,9 +92,12 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 | スイート | 内容 | 実行 |
 |---|---|---|
 | 単体テスト | 記録・集計・削除・TZ固定のロジック（12ケース） | `php tests/run_tests.php` |
+| シードテスト | デモデータ投入の統計検証（8ケース） | `php tests/seed_demo_test.php` |
 | HTTPスモーク | API のステータスコード・PW認証スコープ・ログイン遅延・セキュリティヘッダ（14ケース） | `bash tests/smoke_test.sh` |
 | UI E2E | 実ブラウザ（ヘッドレスchrome + CDP）で操作一連（17チェック） | `node tests/e2e_ui.mjs`（別途サーバー起動） |
-| Docker検証 | コンテナ状態・API・DB直アクセス拒否・永続化・セキュリティ設定（17ケース） | `bash tests/docker_check.sh` |
+| 本番受入 | 本番環境での受入（10ケース・ベースラインT0相対で実データを壊さない） | `PROD_PW=<PW> bash tests/production_check.sh <URL>` |
+
+※ Docker検証（tests/docker_check.sh）は Docker テスト環境の終了（2026-08-07）に伴い廃止。環境レベルの検証は本番受入テストが担います。
 
 ## セキュリティ上の注意
 

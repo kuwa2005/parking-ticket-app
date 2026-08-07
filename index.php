@@ -9,7 +9,7 @@ header('Referrer-Policy: no-referrer');
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>駐車券 記録</title>
+<title>駐車券 記録(DEMO)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <style>
 body{padding-bottom:60px}
@@ -24,7 +24,7 @@ body{padding-bottom:60px}
 <div class="container" style="max-width:560px">
 
   <header class="d-flex justify-content-between align-items-baseline mt-3">
-    <h1 class="h4 mb-0">駐車券 記録</h1>
+    <h1 class="h4 mb-0">駐車券 記録(DEMO)</h1>
     <span id="today-date" class="text-body-secondary small"></span>
   </header>
 
@@ -77,11 +77,13 @@ body{padding-bottom:60px}
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title h6">パスワード</h3>
+        <h3 class="modal-title h6">パスワード(<?= htmlspecialchars(ADMIN_PW, ENT_QUOTES, 'UTF-8') ?>)</h3>
       </div>
       <div class="modal-body">
+        <p class="text-body-secondary small mb-2">デモ用のためパスワードは形式的なものです。</p>
         <input type="password" id="pw" class="form-control form-control-lg text-center" inputmode="numeric"
-               autocomplete="off" placeholder="4桁の数字">
+               autocomplete="off" value="<?= htmlspecialchars(ADMIN_PW, ENT_QUOTES, 'UTF-8') ?>"
+               placeholder="<?= htmlspecialchars(ADMIN_PW, ENT_QUOTES, 'UTF-8') ?>">
         <div class="text-danger small mt-2" id="pw-err"></div>
       </div>
       <div class="modal-footer">
@@ -123,7 +125,7 @@ let pendingAuthAction = null;
 
 function showPwDialog(afterAuth) {
   pendingAuthAction = afterAuth;
-  $('pw').value = '';
+  $('pw').value = $('pw').defaultValue;
   $('pw-err').textContent = '';
   pwModal.show();
 }

@@ -155,10 +155,11 @@ async function main() {
   check('E6 grand total 5', await evaluate("document.querySelector('#month-table tbody tr:last-child td:last-child').textContent === '5'"));
   check('E6 dialog closes', await waitFor("!document.getElementById('pw-dialog').classList.contains('show')"));
 
-  // E7: 今日の記録へ戻り、1件目を削除（セッション認証済みなのでPW不要）→ total 3
+  // E7: 今日の記録へ戻り、「2 枚」の行（昇順で2件目）を削除（セッション認証済みなのでPW不要）→ total 3
+  // 注: get_today は時間昇順（DEMO 化要件）のため先頭行は最初に記録した count=3 の行。count=2 の行を削除する。
   await evaluate("document.getElementById('tab-today').click();");
   await waitFor("!document.getElementById('panel-today').hidden");
-  await evaluate("document.querySelector('#today-list .del').click();");
+  await evaluate("[...document.querySelectorAll('#today-list .record-row')].find(r => r.textContent.includes('2 枚')).querySelector('.del').click();");
   check('E7 total=3 after delete', await waitFor("document.getElementById('today-total').textContent === '3'"));
   check('E7 one row left', (await evaluate("document.querySelectorAll('#today-list .record-row').length")) === 1);
 

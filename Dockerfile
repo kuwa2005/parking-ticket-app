@@ -9,5 +9,6 @@ RUN printf 'display_errors = Off\nlog_errors = On\nexpose_php = Off\n' > /usr/lo
 
 COPY index.php api.php /var/www/html/
 COPY lib /var/www/html/lib/
+COPY scripts /var/www/html/scripts/
 COPY entrypoint.sh /usr/local/bin/park-entrypoint
 RUN chmod +x /usr/local/bin/park-entrypoint

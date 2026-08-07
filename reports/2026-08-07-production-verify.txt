@@ -1,0 +1,12 @@
+PASS T1 GET / → 200 + UI
+PASS T2 today → total=5（デモデータ投入済み）
+PASS T3 add → 201 (id=1205)
+PASS T4 today → total 7（T0+2）
+PASS T5 login → 200
+PASS T6 delete → 204・total 5 復元
+PASS T7 /data/parking.db → 403
+PASS T8 誤PW → 401（1167ms）
+PASS T9 セキュリティヘッダあり
+PASS T10 probe.php → 404（残存なし）
+
+RESULT: 10 passed, 0 failed
