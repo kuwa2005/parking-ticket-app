@@ -89,3 +89,4 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 - 記録・今日の合計・今日の一覧はパスワード不要で誰でも操作できます
 - `data/.htaccess` により DB ファイルの直接ダウンロードは遮断されます（Apache環境。`php -S` では機能しないため注意）
 - セキュリティヘッダ（X-Content-Type-Options / X-Frame-Options / Referrer-Policy）を送信し、Apache/PHP のバージョンは非開示です
+- セキュリティ監査（静的レビュー + 攻撃的アクセステスト）の結果は [セキュリティ監査レポート.md](セキュリティ監査レポート.md) を参照してください
