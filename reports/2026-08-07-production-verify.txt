@@ -1,12 +1,42 @@
-PASS T1 GET / → 200 + UI
-PASS T2 today → total=5（デモデータ投入済み）
-PASS T3 add → 201 (id=1205)
-PASS T4 today → total 7（T0+2）
-PASS T5 login → 200
-PASS T6 delete → 204・total 5 復元
-PASS T7 /data/parking.db → 403
-PASS T8 誤PW → 401（1167ms）
-PASS T9 セキュリティヘッダあり
-PASS T10 probe.php → 404（残存なし）
+本番デプロイ検証レポート — 新機能ラウンド（日付クリック詳細 + 集計連動更新 + 自動更新チェック）
+日時: 2026-08-07
+対象: https://debugprint.com/parking/（coreserver.jp b45・debugprint.com/parking）
+方式: ローカル全検証 GREEN 後、SFTP（lftp・mirror -R）で本番へ直接上書き配置 → 本番側で受入確認
+前提: Docker テスト環境は終了（2026-08-07 ユーザー指示・ダウンタイム許容）。data/parking.db は保全（上書きしない）。
 
-RESULT: 10 passed, 0 failed
+## 配置ファイル（/tmp/park_deploy2 → public_html/debugprint.com/parking/）
+- index.php（日詳細モーダル #day-dialog・日付セルクリック化・add 連動・60 秒ポーリング）
+- api.php（action=day / action=version 追加）
+- lib/config.php / lib/db.php / lib/store.php（get_day / get_db_version 追加）
+- data/.htaccess（DB 直アクセス遮断・既存のまま）
+- scripts/seed_demo.php（参考配置・実行せず）
+- data/parking.db は**未送信**（本番デモデータ 401 件を保全・配置後の ls で 40960 bytes 確認）
+
+## 本番受入テスト（tests/production_check.sh・T1〜T13・PROD_PW は環境変数）
+RESULT: 13 passed, 0 failed
+- T1 GET / → 200 + UI（「駐車券」）
+- T2 today → total=5（デモデータ投入済み・ベースライン T0）
+- T3 add → 201（id=1206・自レコード）
+- T4 today → total 7（T0+2）
+- T5 login → 200（正PW）
+- T6 delete → 204・total 5 復元（自レコードのみ・実データ無傷）
+- T7 /data/parking.db → 403（.htaccess 実効）
+- T8 誤PW → 401（1399ms・F1 スロットル動作）
+- T9 セキュリティヘッダあり（nosniff / XFO:DENY）
+- T10 probe.php → 404（情報開示アーティファクト残存なし）
+- T11 version → count=401 maxId=1204（認証不要・更新検出 API 稼働）
+- T12 day 未認証 → 401（日詳細はセッション認証保護）
+- T13 day 認証済み（2026-06-01）→ 200・5 件（デモデータ日・5〜10 件の範囲内）
+
+## 新 UI 配置確認
+- /parking/ の HTML に day-dialog / day-link が存在（4 箇所）
+- setInterval(checkVersion, 60000) が存在（60 秒自動更新チェック実装）
+
+## 既存サイト無傷確認
+- https://debugprint.com/ ルート → 200・<title>KURAGASHI — Software Engineer / AI Development</title>（ポートフォリオ無傷）
+- /about/ → 200
+
+## 注意事項
+- 認証情報（SFTP PW・本番 ADMIN_PW）は本レポートに記載しない。
+- テスト後は total=5（T0）に復元済み。本番データ（デモ 401 件）は無傷。
+- day/version API の実測値はデモデータ前提（相対/範囲検証）。

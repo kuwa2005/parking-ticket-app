@@ -61,6 +61,21 @@ if printf '%s' "$hdr" | grep -qi 'X-Content-Type-Options: nosniff' && printf '%s
 code=$(curl -sk --max-time 20 -o /dev/null -w '%{http_code}' "$BASE/probe.php")
 if [ "$code" = "403" ] || [ "$code" = "404" ]; then ok "T10 probe.php → $code（残存なし）"; else ng "T10 probe.php" "code=$code (情報開示リスク)"; fi
 
+# T11: version → 200 + count≥400（デモデータ401件前提）・maxId≥1（認証不要）
+ver=$(curl -sk --max-time 20 "$BASE/api.php?action=version")
+vc=$(printf '%s' "$ver" | sed -n 's/.*"count":\([0-9][0-9]*\).*/\1/p')
+vm=$(printf '%s' "$ver" | sed -n 's/.*"maxId":\([0-9][0-9]*\).*/\1/p')
+if [ -n "$vc" ] && [ "$vc" -ge 400 ] && [ -n "$vm" ] && [ "$vm" -ge 1 ]; then ok "T11 version → count=$vc maxId=$vm"; else ng "T11 version" "$ver"; fi
+
+# T12: day 未認証 → 401
+code=$(curl -sk --max-time 20 -o /dev/null -w '%{http_code}' "$BASE/api.php?action=day&date=2026-06-01")
+if [ "$code" = "401" ]; then ok "T12 day no-auth → 401"; else ng "T12 day no-auth" "code=$code"; fi
+
+# T13: day 認証済み（2026-06-01・デモデータ日）→ 200 + 5〜10件
+body=$(curl -sk --max-time 20 -b "$JAR" "$BASE/api.php?action=day&date=2026-06-01")
+n=$(printf '%s' "$body" | grep -o '"id":' | wc -l)
+if printf '%s' "$body" | grep -q '"date":"2026-06-01"' && [ "$n" -ge 5 ] && [ "$n" -le 10 ]; then ok "T13 day authed → 200（$n 件）"; else ng "T13 day authed" "$body"; fi
+
 rm -f "$JAR" "$OUT"
 echo
 echo "RESULT: $PASS passed, $FAIL failed"
