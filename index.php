@@ -18,14 +18,20 @@ body{padding-bottom:60px}
 .record-row:last-child{border-bottom:none}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--bs-body-color);color:var(--bs-body-bg);padding:.6rem 1.2rem;border-radius:999px;font-size:.9rem;opacity:0;transition:opacity .25s;pointer-events:none;z-index:1080}
 #toast.show{opacity:1}
+.cal-cell{min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--bs-border-color);border-radius:.375rem;cursor:pointer;position:relative}
+.cal-cell:hover{background:var(--bs-tertiary-bg)}
+.cal-cell.today{border-color:var(--bs-primary);color:var(--bs-primary);font-weight:700}
+.cal-cell .cal-badge{font-size:.7rem;background:var(--bs-primary);color:var(--bs-white);border-radius:999px;padding:0 .4rem;line-height:1.3;margin-top:2px}
+.cal-empty{border-color:transparent;cursor:default}
+.cal-empty:hover{background:none}
 </style>
 </head>
 <body class="bg-body-tertiary">
 <div class="container" style="max-width:560px">
 
-  <header class="d-flex justify-content-between align-items-baseline mt-3">
+  <header class="d-flex justify-content-between align-items-center mt-3">
     <h1 class="h4 mb-0">駐車券 記録(DEMO)</h1>
-    <span id="today-date" class="text-body-secondary small"></span>
+    <button id="today-date" type="button" class="btn btn-sm btn-outline-primary"></button>
   </header>
 
   <div class="card mt-3 text-center">
@@ -43,33 +49,16 @@ body{padding-bottom:60px}
     </div>
   </div>
 
-  <ul class="nav nav-pills nav-fill mt-3">
-    <li class="nav-item"><button id="tab-today" class="nav-link active w-100">今日の記録</button></li>
-    <li class="nav-item"><button id="tab-month" class="nav-link w-100">日別集計</button></li>
-  </ul>
-
-  <div class="card mt-3" id="panel-today">
+  <div class="card mt-3">
     <div class="card-body">
       <h2 class="h6 mb-3">今日の記録</h2>
       <div id="today-list"></div>
     </div>
   </div>
 
-  <div class="card mt-3" id="panel-month" hidden>
-    <div class="card-body">
-      <h2 class="h6 mb-3">日別集計</h2>
-      <div class="d-flex gap-2 mb-3">
-        <select id="year" class="form-select form-select-lg"></select>
-        <select id="month" class="form-select form-select-lg"></select>
-        <button id="month-btn" class="btn btn-primary btn-lg flex-shrink-0">表示</button>
-      </div>
-      <div class="text-danger small mb-2" id="month-err"></div>
-      <table class="table table-sm" id="month-table" hidden>
-        <thead><tr><th class="text-start">日付</th><th class="text-end">枚数</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
+  <footer class="mt-4 text-center small">
+    <a href="admin.php">管理者画面</a>
+  </footer>
 </div>
 
 <!-- PWモーダル -->
@@ -94,7 +83,29 @@ body{padding-bottom:60px}
   </div>
 </div>
 
-<!-- 日詳細モーダル -->
+<!-- カレンダーモーダル（過去日付閲覧・PWなし公開） -->
+<div class="modal fade" id="calendar-dialog" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title h6" id="cal-title"></h3>
+        <button type="button" class="btn-close" id="cal-close" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 mb-2">
+          <select id="cal-year" class="form-select form-select-sm"></select>
+          <select id="cal-month" class="form-select form-select-sm"></select>
+          <button id="cal-prev" type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0">‹ 前月</button>
+          <button id="cal-next" type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0">翌月 ›</button>
+        </div>
+        <div id="cal-grid" class="row row-cols-7 g-1 text-center"></div>
+        <p class="text-body-secondary small mt-2 mb-0">日付をタップするとその日の詳細を表示します（閲覧のみ）</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 日詳細モーダル（見るだけ） -->
 <div class="modal fade" id="day-dialog" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -172,7 +183,6 @@ $('day-close').addEventListener('click', () => dayModal.hide());
 
 async function openDayDetail(date) {
   const { status, data } = await api('GET', 'day&date=' + date);
-  if (status === 401) { showPwDialog(() => openDayDetail(date)); return; }
   if (status !== 200) { toast('読み込みに失敗しました'); return; }
   const dt = new Date(date + 'T00:00:00');
   $('day-title').textContent = `${dt.getMonth() + 1}月${dt.getDate()}日（${data.records.length}件・${data.total}枚）`;
@@ -216,7 +226,7 @@ function rowNode(r) {
   del.addEventListener('click', () => {
     const doDelete = async () => {
       const { status } = await api('DELETE', 'delete&id=' + r.id);
-      if (status === 204) { toast('削除しました'); await loadToday(); }
+      if (status === 204) { toast('削除しました'); await loadToday(); refreshVisible(); }
       else if (status === 401) { showPwDialog(doDelete); }
       else if (status === 404) { toast('既に削除済みです'); await loadToday(); }
     };
@@ -249,79 +259,114 @@ $('add-btn').addEventListener('click', async () => {
   if (status === 201) {
     $('count').value = '1'; toast('記録しました');
     await loadToday();
-    if (!$('panel-month').hidden) await loadMonthly();
-    if (dayModalVisibleDate !== null) await openDayDetail(dayModalVisibleDate);
+    refreshVisible();
   }
   else if (status === 400) { toast('枚数は1〜999で入力してください'); }
   else { toast('エラーが発生しました'); }
 });
 
-// 日別集計
+// ---------- カレンダー（過去日付閲覧） ----------
+const calendarModal = new bootstrap.Modal($('calendar-dialog'), { backdrop: 'static', keyboard: false });
+let calendarOpen = false;
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth() + 1;
+$('calendar-dialog').addEventListener('hidden.bs.modal', () => { calendarOpen = false; });
+$('calendar-dialog').addEventListener('shown.bs.modal', () => { calendarOpen = true; renderCalendar(); });
+$('cal-close').addEventListener('click', () => calendarModal.hide());
+
 const now = new Date();
 for (let y = now.getFullYear(); y >= now.getFullYear() - 10; y--) {
   const opt = document.createElement('option');
   opt.value = y; opt.textContent = y + '年';
   if (y === now.getFullYear()) opt.selected = true;
-  $('year').append(opt);
+  $('cal-year').append(opt);
 }
 for (let m = 1; m <= 12; m++) {
   const opt = document.createElement('option');
   opt.value = m; opt.textContent = m + '月';
   if (m === now.getMonth() + 1) opt.selected = true;
-  $('month').append(opt);
+  $('cal-month').append(opt);
+}
+$('cal-year').addEventListener('change', () => { calYear = parseInt($('cal-year').value, 10); renderCalendar(); });
+$('cal-month').addEventListener('change', () => { calMonth = parseInt($('cal-month').value, 10); renderCalendar(); });
+$('cal-prev').addEventListener('click', () => {
+  calMonth--;
+  if (calMonth < 1) { calMonth = 12; calYear--; }
+  syncCalSelects(); renderCalendar();
+});
+$('cal-next').addEventListener('click', () => {
+  calMonth++;
+  if (calMonth > 12) { calMonth = 1; calYear++; }
+  syncCalSelects(); renderCalendar();
+});
+
+function syncCalSelects() {
+  $('cal-year').value = calYear;
+  $('cal-month').value = calMonth;
 }
 
-async function loadMonthly() {
-  const { status, data } = await api('GET', 'monthly&year=' + $('year').value + '&month=' + $('month').value);
-  if (status === 401) { showPwDialog(loadMonthly); return; }
-  if (status === 400) { $('month-err').textContent = '指定が不正です'; return; }
-  $('month-err').textContent = '';
-  const tbody = $('month-table').querySelector('tbody');
-  tbody.textContent = '';
-  let grand = 0;
-  for (const d of data.days) {
-    grand += d.total;
-    const tr = document.createElement('tr');
-    const tdDate = document.createElement('td');
-    tdDate.className = 'text-start day-link text-primary';
-    tdDate.textContent = d.date.slice(5);
-    tdDate.style.cursor = 'pointer';
-    tdDate.style.textDecoration = 'underline';
-    tdDate.addEventListener('click', () => openDayDetail(d.date));
-    const tdTotal = document.createElement('td');
-    tdTotal.className = 'text-end';
-    tdTotal.textContent = d.total;
-    tr.append(tdDate, tdTotal);
-    tbody.append(tr);
+async function renderCalendar() {
+  $('cal-title').textContent = calYear + '年' + calMonth + '月';
+  const { status, data } = await api('GET', 'monthly&year=' + calYear + '&month=' + calMonth);
+  const byDate = {};
+  if (status === 200) {
+    for (const d of data.days) { byDate[d.date] = d.total; }
   }
-  const tr = document.createElement('tr');
-  const tdDate = document.createElement('td');
-  tdDate.className = 'text-start fw-bold';
-  tdDate.textContent = '合計';
-  const tdTotal = document.createElement('td');
-  tdTotal.className = 'text-end fw-bold';
-  tdTotal.textContent = grand;
-  tr.append(tdDate, tdTotal);
-  tbody.append(tr);
-  $('month-table').hidden = false;
+  const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD（JST）
+  const grid = $('cal-grid');
+  grid.textContent = '';
+  const dowLabels = ['月', '火', '水', '木', '金', '土', '日'];
+  for (const label of dowLabels) {
+    const col = document.createElement('div');
+    col.className = 'col text-body-secondary small fw-semibold py-1';
+    col.textContent = label;
+    grid.append(col);
+  }
+  const first = new Date(calYear, calMonth - 1, 1);
+  const offset = (first.getDay() + 6) % 7; // 月曜始まり
+  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  for (let i = 0; i < offset; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'col cal-cell cal-empty';
+    grid.append(empty);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = calYear + '-' + String(calMonth).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const cell = document.createElement('div');
+    cell.className = 'col cal-cell';
+    cell.dataset.date = date;
+    cell.dataset.day = String(d);
+    if (date === todayStr) cell.classList.add('today');
+    const dayNum = document.createElement('span');
+    dayNum.textContent = d;
+    cell.append(dayNum);
+    const total = byDate[date] ?? 0;
+    if (total > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'cal-badge';
+      badge.textContent = total;
+      cell.append(badge);
+    }
+    cell.addEventListener('click', () => {
+      calendarModal.hide();
+      openDayDetail(date);
+    });
+    grid.append(cell);
+  }
 }
 
-$('month-btn').addEventListener('click', loadMonthly);
-$('tab-today').addEventListener('click', () => {
-  $('tab-today').classList.add('active');
-  $('tab-month').classList.remove('active');
-  $('panel-today').hidden = false;
-  $('panel-month').hidden = true;
-});
-$('tab-month').addEventListener('click', () => {
-  $('tab-month').classList.add('active');
-  $('tab-today').classList.remove('active');
-  $('panel-today').hidden = true;
-  $('panel-month').hidden = false;
+$('today-date').addEventListener('click', () => {
+  calYear = now.getFullYear();
+  calMonth = now.getMonth() + 1;
+  syncCalSelects();
+  calendarModal.show();
 });
 
-$('today-date').textContent = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
-loadToday();
+// 表示中のパネル（今日一覧・カレンダー・日詳細）を最新化
+async function refreshVisible() {
+  if (calendarOpen) await renderCalendar();
+  if (dayModalVisibleDate !== null) await openDayDetail(dayModalVisibleDate);
+}
 
 // 自動更新チェック: 60 秒ごとに version を取得し、変化があれば表示中のパネルを最新化
 let lastVersion = null;
@@ -331,14 +376,16 @@ async function checkVersion() {
   const sig = data.count + ':' + data.maxId;
   if (lastVersion !== null && lastVersion !== sig) {
     await loadToday();
-    if (!$('panel-month').hidden) await loadMonthly();
-    if (dayModalVisibleDate !== null) await openDayDetail(dayModalVisibleDate);
+    await refreshVisible();
   }
   lastVersion = sig;
 }
 window.__refreshNow = checkVersion;
 setInterval(checkVersion, 60000);
 checkVersion();
+
+$('today-date').textContent = now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+loadToday();
 </script>
 </body>
 </html>

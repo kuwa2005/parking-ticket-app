@@ -43,7 +43,6 @@ switch ($action) {
         break;
     }
     case 'monthly': {
-        require_auth();
         $year = $_GET['year'] ?? null;
         $month = $_GET['month'] ?? null;
         $year = is_string($year) && ctype_digit($year) ? (int)$year : null;
@@ -79,7 +78,6 @@ switch ($action) {
         break;
     }
     case 'day': {
-        require_auth();
         $date = $_GET['date'] ?? null;
         if (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             respond(400, ['error' => 'invalid date']);
@@ -89,6 +87,63 @@ switch ($action) {
     }
     case 'version': {
         respond(200, get_db_version($db));
+        break;
+    }
+    case 'auth': {
+        require_auth();
+        respond(200, ['ok' => true]);
+        break;
+    }
+    case 'update': {
+        require_auth();
+        $in = read_json_body();
+        $id = $in['id'] ?? null;
+        $id = is_int($id) ? $id : (is_string($id) && ctype_digit($id) ? (int)$id : null);
+        if ($id === null || $id < 1) { respond(400, ['error' => 'invalid id']); }
+        $count = $in['count'] ?? null;
+        if ($count !== null && !is_int($count)) { respond(400, ['error' => 'invalid count']); }
+        $createdAt = $in['created_at'] ?? null;
+        if ($createdAt !== null) {
+            if (!is_string($createdAt) || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $createdAt)) {
+                respond(400, ['error' => 'invalid datetime']);
+            }
+            $createdAt .= ':00';
+        }
+        $result = update_record($db, $id, $count, $createdAt);
+        if ($result['error'] === 'not_found') { respond(404, ['error' => 'not found']); }
+        if ($result['error'] === 'invalid_count') { respond(400, ['error' => 'invalid count']); }
+        if ($result['error'] === 'invalid_datetime') { respond(400, ['error' => 'invalid datetime']); }
+        respond(200, ['ok' => true, 'record' => $result['record']]);
+        break;
+    }
+    case 'stats': {
+        require_auth();
+        $year = $_GET['year'] ?? null;
+        $month = $_GET['month'] ?? null;
+        if (!is_string($year) || !preg_match('/^\d{4}$/', $year) || (int)$year < 2000 || (int)$year > 2100) {
+            respond(400, ['error' => 'invalid period']);
+        }
+        $monthNorm = null;
+        if ($month !== null) {
+            if (!is_string($month) || !preg_match('/^\d{1,2}$/', $month) || (int)$month < 1 || (int)$month > 12) {
+                respond(400, ['error' => 'invalid period']);
+            }
+            $monthNorm = sprintf('%02d', (int)$month);
+        }
+        $resp = ['year' => (int)$year] + get_stats($db, $year, $monthNorm);
+        if ($monthNorm !== null) { $resp['month'] = (int)$monthNorm; }
+        respond(200, $resp);
+        break;
+    }
+    case 'yearly': {
+        require_auth();
+        $year = $_GET['year'] ?? null;
+        if (!is_string($year) || !preg_match('/^\d{4}$/', $year) || (int)$year < 2000 || (int)$year > 2100) {
+            respond(400, ['error' => 'invalid period']);
+        }
+        $result = get_yearly_totals($db, (int)$year);
+        if ($result === null) { respond(400, ['error' => 'invalid period']); }
+        respond(200, $result);
         break;
     }
     default:

@@ -21,6 +21,7 @@ sleep 1
 
 YEAR=$(date +%Y)
 MONTH=$(date +%-m)
+today_ymd=$(date +%F)
 
 # 1. index.php が 200 で「駐車券」「記録する」を含む
 code=$(curl -s -o /tmp/park_idx.html -w '%{http_code}' "$BASE/index.php")
@@ -45,9 +46,9 @@ if [ "$total" = "2" ]; then ok "3 today total=2"; else ng "3 today total" "total
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"count":0}' "$BASE/api.php?action=add")
 if [ "$code" = "400" ]; then ok "4 add(count=0) 400"; else ng "4 add invalid" "code=$code"; fi
 
-# 5. monthly 未認証 → 401
-code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api.php?action=monthly&year=$YEAR&month=$MONTH")
-if [ "$code" = "401" ]; then ok "5 monthly no-auth 401"; else ng "5 monthly no-auth" "code=$code"; fi
+# 5. monthly 未認証でも 200（公開化・Q42: メインの過去閲覧のため）+ 本日の日付を含む
+resp=$(curl -s -b "$JAR2" "$BASE/api.php?action=monthly&year=$YEAR&month=$MONTH")
+if printf '%s' "$resp" | grep -q "$today_ymd"; then ok "5 monthly no-auth 200 + today included"; else ng "5 monthly no-auth" "resp=$resp"; fi
 
 # 6. login 誤PW → 401
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"pw":"9999"}' -c "$JAR" "$BASE/api.php?action=login")
@@ -59,7 +60,6 @@ if [ "$code" = "200" ]; then ok "7 login correct pw 200"; else ng "7 login corre
 
 # 8. monthly 認証済み → 200 + 本日の日付を含む
 resp=$(curl -s -b "$JAR" "$BASE/api.php?action=monthly&year=$YEAR&month=$MONTH")
-today_ymd=$(date +%F)
 if printf '%s' "$resp" | grep -q "$today_ymd"; then ok "8 monthly authed 200 + today included"; else ng "8 monthly authed" "resp=$resp"; fi
 
 # 9. delete 未認証（別クッキー）→ 401
@@ -97,9 +97,9 @@ else
   ng "14 index.php セキュリティヘッダ" "XFO=$XFO XCT=$XCT RP=$RP"
 fi
 
-# 15. day 未認証（別クッキー）→ 401
-code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR2" "$BASE/api.php?action=day&date=$today_ymd")
-if [ "$code" = "401" ]; then ok "15 day no-auth 401"; else ng "15 day no-auth" "code=$code"; fi
+# 15. day 未認証でも 200（公開化・Q42）
+resp=$(curl -s -b "$JAR2" "$BASE/api.php?action=day&date=$today_ymd")
+if printf '%s' "$resp" | grep -q '"records":\['; then ok "15 day no-auth 200"; else ng "15 day no-auth" "resp=$resp"; fi
 
 # 16. day 不正な日付形式 → 400
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api.php?action=day&date=2026/08/07")
@@ -137,6 +137,44 @@ else
   ng "19 version decrement" "code=$code count=$vcount->$vcount2"
 fi
 curl -s -o /dev/null -b "$JAR" -X DELETE "$BASE/api.php?action=delete&id=$id3" # 後片付け（today=0 維持）
+
+# 20. auth 未認証（別クッキー）→ 401 / 21. auth 認証済み → 200
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR2" "$BASE/api.php?action=auth")
+code2=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api.php?action=auth")
+if [ "$code" = "401" ] && [ "$code2" = "200" ]; then ok "20/21 auth no-auth 401 / authed 200"; else ng "20/21 auth" "no-auth=$code authed=$code2"; fi
+
+# 22. update 未認証 → 401（対象レコードを追加）
+resp4=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"count":5}' "$BASE/api.php?action=add")
+id4=$(printf '%s' "$resp4" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR2" -X POST -H 'Content-Type: application/json' -d "{\"id\":$id4,\"count\":8}" "$BASE/api.php?action=update")
+if [ "$code" = "401" ]; then ok "22 update no-auth 401"; else ng "22 update no-auth" "code=$code"; fi
+
+# 23. update 認証済み（count 5→8）→ 200 + today total=8
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' -d "{\"id\":$id4,\"count\":8}" "$BASE/api.php?action=update")
+today=$(curl -s "$BASE/api.php?action=today")
+total=$(printf '%s' "$today" | sed -n 's/.*"total":\([0-9]*\).*/\1/p')
+if [ "$code" = "200" ] && [ "$total" = "8" ]; then ok "23 update authed 200 + total=8"; else ng "23 update authed" "code=$code total=$total"; fi
+
+# 24. update 不正（count=0 → 400 / 日時形式不正 → 400 / 存在しない id → 404）
+c1=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' -d "{\"id\":$id4,\"count\":0}" "$BASE/api.php?action=update")
+c2=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' -d "{\"id\":$id4,\"created_at\":\"2026-08-07\"}" "$BASE/api.php?action=update")
+c3=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' -d '{"id":999999,"count":1}' "$BASE/api.php?action=update")
+if [ "$c1" = "400" ] && [ "$c2" = "400" ] && [ "$c3" = "404" ]; then ok "24 update invalid 400/400/404"; else ng "24 update invalid" "c1=$c1 c2=$c2 c3=$c3"; fi
+
+# 25. stats 未認証 → 401
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR2" "$BASE/api.php?action=stats&year=$YEAR&month=$MONTH")
+if [ "$code" = "401" ]; then ok "25 stats no-auth 401"; else ng "25 stats no-auth" "code=$code"; fi
+
+# 26. stats 認証済み → 200（当月: days=1 total=8 max=today）+ yearly 認証済み → 200（12ヶ月）
+resp=$(curl -s -b "$JAR" "$BASE/api.php?action=stats&year=$YEAR&month=$MONTH")
+yresp=$(curl -s -b "$JAR" "$BASE/api.php?action=yearly&year=$YEAR")
+mcount=$(printf '%s' "$yresp" | grep -o '"month":' | wc -l)
+if printf '%s' "$resp" | grep -q '"total":8' && printf '%s' "$resp" | grep -q '"days":1' \
+   && printf '%s' "$resp" | grep -q "\"date\":\"$today_ymd\"" && [ "$mcount" = "12" ]; then
+  ok "26 stats authed 200 (total=8 days=1) + yearly 12 months"
+else
+  ng "26 stats authed" "stats=$resp yearly=$yresp"
+fi
 
 echo
 echo "RESULT: $PASS passed, $FAIL failed"

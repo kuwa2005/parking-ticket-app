@@ -110,6 +110,17 @@ docker compose logs -f         # ログ確認
 
 証跡: `reports/2026-08-07-unit-test-results.txt` / `reports/2026-08-07-seed-demo-test.txt` / `reports/2026-08-07-smoke-test-results.txt` / `reports/2026-08-07-e2e-ui-results.txt` / `reports/2026-08-07-production-verify.txt` / `reports/2026-08-07-production-deploy.txt`
 
+### 管理者画面ラウンドの検証（2026-08-08/09 実測・reports/ を fresh 記録で更新）
+
+| スイート | 内容 | 結果 |
+|---|---|---|
+| 単体（`tests/run_tests.php`） | T1〜T20 + T19b: 既存 + **update_record（枚数/日時/検証）・get_stats（曜日別/時間帯/サマリ）・get_yearly_totals**・monthly days の count | **21/21 PASS** |
+| スモーク（`tests/smoke_test.sh`） | HTTP 25チェック（T1〜T26・T20/21 結合）: **monthly/day 未認証 200（公開化）・auth（401/200）・update（401/200/400/404）・stats（401/200）** | **25/25 PASS** |
+| E2E（`tests/e2e_ui.mjs`） | 実ブラウザ 42チェック（E1〜E17）: メイン（記録・カレンダー閲覧・削除PW・自動更新・前月ナビ）+ 管理者（PWダイアログ・日別集計・日詳細編集/削除・月報・分析） | **42/42 PASS**（ページ例外なし） |
+| 本番（`tests/production_check.sh`） | **https://debugprint.com/parking/** 実サーバー 17ケース（T0相対）: 既存回帰 + **admin.php 200 / update 未認証 401 / stats 認証 200（2026-06: days=30 total=176）/ monthly・day 未認証 200** | **17/17 PASS** |
+
+※本番デプロイ直後のブラウザ UI 検証（本番 URL をヘッドレス chrome で操作: カレンダー閲覧・admin PW ログイン・2026-06 集計・日詳細・月報/分析グラフ描画）は、受入 17/17 PASS 直後に実行開始したが、**実行中にアクセス元 IP が一時アクセス規制（全ドメイン 403）に掛かり中断**（サーバー側の一時規制と判定 — アプリ・デプロイ起因ではないことを確認: 規制は debugprint.com ルート・/about/ 含むドメイン全体に及んだ）。規制解除後の再実行で完了予定。
+
 ※ Docker検証（`tests/docker_check.sh`）は Docker テスト環境の終了（2026-08-07・ユーザー指示）に伴い廃止。環境レベルの検証は本番受入テストが担う（直前の Docker 検証 17/17 PASS は `reports/2026-08-07-docker-verification.txt`）。
 
 ## Production Deployment（2026-08-07）
@@ -131,6 +142,14 @@ docker compose logs -f         # ログ確認
 - **実装方式**: TDD — unit T13〜T16 → smoke 15〜19 → E2E E9〜E11（RED→GREEN を実測）。コミット: e9ab00a（store.php コア）/ acc35f6（api.php）/ 1dd7841（index.php + E2E）
 - **本番デプロイ（直接）**: SFTP（lftp mirror -R）で index.php / api.php / lib / scripts を上書き（data/parking.db は未送信・401件を保全）→ 受入テスト **13/13 PASS**（T11 version 401件 / T12 day 未認証 401 / T13 day 認証 200・5件）。既存ポートフォリオ（ルート・/about/）無傷確認
 
+## 管理者画面ラウンド（2026-08-08/09・専用管理者 URL + メイン再編）
+
+- **依頼（逐語）**: 「管理者用の画面のURLは？」→「専用URLを新設する」（Q33）→ 設計ヒアリング Q34〜Q42 → Requirements Lock **Approved（Q43）** → 実装・検証・本番デプロイ完了。
+- **設計**: ①**admin.php 新設**（https://debugprint.com/parking/admin.php・parking 直下・単一ファイル）— 開くと PW ダイアログ（未認証はコンテンツ非表示・データ API は 401 で二重防御）。機能: 日別集計（年・月指定）+ 日詳細（**全期間・編集 = 枚数 + 日時・削除可**）+ **月報/年報（表 + 棒グラフ・Chart.js jsDelivr CDN）** + **分析（曜日別・時間帯別・期間サマリ）**。②**メイン（index.php）再編**: 日別集計タブ撤去（管理者へ移動）・本日分の削除のみ維持・**過去日付閲覧（カレンダー・PW なし公開・Q42 承認）** — 本日日付クリック → 年・月選択 + 日別合計バッジのグリッド → 日付クリックで日詳細モーダル（見るだけ）。③**API**: `monthly`/`day` を**公開化**（メインのカレンダー閲覧のため）+ `auth`（要認証 200/401）・`update`（要認証・{id,count?,created_at?}・不正 400・未存在 404）・`stats`（要認証・曜日別/時間帯/サマリ）・`yearly`（要認証・年報用月別合計）を新設。
+- **実装方式**: TDD — store 層（update_record/get_stats/get_yearly_totals・unit 21/21）→ API 層（auth/update/stats/yearly・公開化・smoke 25/25）→ UI 層（e2e_ui.mjs E1〜E17 再編 + index.php 再編 + admin.php 新設・E2E 42/42）。
+- **本番デプロイ（直接）**: SFTP（lftp mirror -R）で index.php / admin.php / api.php / lib / scripts を上書き（**data/parking.db は未送信・401 件保全・配置後も 40960B のまま確認済み**）→ 受入テスト **17/17 PASS**（admin.php 200・update 未認証 401・stats 2026-06 days=30 total=176・monthly/day 未認証 200・デモデータ日 2026-06-01 → 5 件）。
+- **仕様**: `docs/compose/specs/2026-08-07-admin-page-and-browsing-spec.md`（R1〜R9）・ヒアリング: `docs/compose/specs/2026-08-07-parking-ticket-hearing.md`（Q33〜Q43）。
+
 ## Journey Log
 
 - [dead end] Bootstrap 書き換えで削除ボタンの `del` クラスが脱落し、E2E の `#today-list .del` が全滅（DIAGで実証）。UI クラス名は E2E セレクタと一体。
@@ -146,6 +165,9 @@ docker compose logs -f         # ログ確認
 - [lesson] 固定期待の HTTP テストは外部要因で破綻する（smoke 12/14 FAIL の実証）: smoke の「today total=2」等の固定期待が、ポート 4500 が Docker コンテナ（シード済み実DB）に占有された状態で破綻した（実データのレコードが混入）。原因（Docker コンテナ消滅 + 4500 空き）解消後に再実行で 14/14 に復帰。→ テストは T0 相対方式（本番受入）や一時DBの完全隔離（smoke）を徹底。
 - [lesson] 新機能の E2E は「表示中パネルの連動」を検証するため、初回ポーリング（checkVersion のベースライン確立）とモーダルの show 遷移（hide の guard 約500ms）に注意。E9 は show 遷移完了を待ってから hide する（既存 E5/E6 と同じ Bootstrap Modal の guard 問題）。
 - [lesson] デプロイは「ローカル全検証 GREEN → SFTP 直接配置 → 本番受入テスト（T0 相対）+ 既存サイト無傷確認」の順序で安全に実施できる（Docker テスト環境終了後の新標準手順）。
+- [lesson] 固定日付のデモデータ（2026-06-01〜08-07）は実日付が過ぎると「今日」が 0 件になる。本番受入の T2 は「total≥5」の固定期待を T0 相対へ緩和（デモ存在確認は version count≥400 が担保）— 固定期待の破綻を T0 相対で回避する原則（前ラウンドの教訓）を本番受入にも適用。
+- [lesson] 本番へのブラウザ検証は大量リクエストになりやすく、共有ホスティング（coreserver）のアクセス規制（全ドメイン 403）を誘発した。受入テスト（curl 数十リクエスト）→ ブラウザ検証（ページ再読込 + CDN）の連続実行は、間隔を空けて実行する方が安全。
+- [lesson] 共有ホストの IP 規制はドメイン全体に及ぶ（/parking/ だけでなくルート・/about/ も 403）— デプロイ起因と誤認しないよう、規制時はまずドメイン全体を確認して切り分ける。
 
 ## Source Materials
 

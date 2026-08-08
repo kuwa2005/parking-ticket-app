@@ -47,10 +47,10 @@ docker compose up -d --build
 
 ## 使い方
 
-1. **記録**: 枚数を入力して「記録する」→ 今日の合計・一覧に即時反映。日別集計を表示中なら集計側も最新化されます。
-2. **日別集計**: 「日別集計」タブ → 年・月を指定 → パスワードを入力 → 各日の合計と月合計を表示。**日付をクリックするとその日の記録一覧（時刻・枚数）がモーダルで開きます**（表示のみ・削除は従来どおり今日の一覧から）。
+1. **記録**: 枚数を入力して「記録する」→ 今日の合計・一覧に即時反映（60 秒ごとの自動更新で他端末の変更も反映）。
+2. **過去の閲覧（PW なし）**: 画面上部の本日の日付をクリック → カレンダー（年・月選択・日別合計バッジ）→ 日付をクリックするとその日の記録一覧（時刻・枚数）がモーダルで開きます（表示のみ）。
 3. **削除**: 今日の一覧の「削除」→ パスワードを入力 → レコード削除。
-4. **自動更新**: 60 秒ごとに更新チェックが走り、他端末などでデータが更新されていれば表示中の画面が自動で最新化されます。
+4. **管理者画面（https://<サーバー>/admin.php）**: 開くとパスワード入力 → 日別集計（年・月指定・日付クリックで詳細）・日詳細の**編集（枚数・日時）と削除**・**月報/年報（表 + 棒グラフ）**・**分析（曜日別・時間帯別・期間サマリ）**。
 
 ## パスワードの変更
 
@@ -69,13 +69,14 @@ define('ADMIN_PW', '1234');
 
 Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルのみで動作します。完全オフラインのLANで使う場合は Bootstrap をローカル配置に切り替えてください。
 
-**本番デプロイ実績（2026-08-07）**: coreserver.jp 共有ホスティングのサブディレクトリにデプロイし、受入テスト 10/10 PASS（記録・集計・認証・削除・DB直アクセス拒否・誤PWスロットル・セキュリティヘッダ）を確認済み。公開 URL は https://debugprint.com/parking/ （詳細: reports/2026-08-07-production-deploy.txt）。同日、ユーザーによる本番直接改修（DEMO 化）をリポジトリへ反映し、本番を正規シードで再投入・受入テスト 10/10 PASS（reports/2026-08-07-production-verify.txt）。**DEMO 運用のため本番の管理パスワードは 1234 です**（デモ用のためパスワードは形式的なもの — UI に注記表示）。**新機能ラウンド（同日）**: 日付クリック詳細モーダル・集計表示中の記録連動・60 秒自動更新チェックを本番へ直接デプロイし、受入テスト 13/13 PASS（reports/2026-08-07-production-verify.txt）。
+**本番デプロイ実績（2026-08-07）**: coreserver.jp 共有ホスティングのサブディレクトリにデプロイし、受入テスト 10/10 PASS（記録・集計・認証・削除・DB直アクセス拒否・誤PWスロットル・セキュリティヘッダ）を確認済み。公開 URL は https://debugprint.com/parking/ （詳細: reports/2026-08-07-production-deploy.txt）。同日、ユーザーによる本番直接改修（DEMO 化）をリポジトリへ反映し、本番を正規シードで再投入・受入テスト 10/10 PASS（reports/2026-08-07-production-verify.txt）。**DEMO 運用のため本番の管理パスワードは 1234 です**（デモ用のためパスワードは形式的なもの — UI に注記表示）。**新機能ラウンド（同日）**: 日付クリック詳細モーダル・集計表示中の記録連動・60 秒自動更新チェックを本番へ直接デプロイし、受入テスト 13/13 PASS（reports/2026-08-07-production-verify.txt）。**管理者画面ラウンド（2026-08-09）**: 専用管理者 URL（/admin.php）新設（PW ダイアログ → 日別集計・日詳細編集/削除・月報/年報/分析）とメイン再編（カレンダー過去閲覧・PW なし公開）を本番へ直接デプロイ。受入テスト **17/17 PASS**・ブラウザ UI 検証（本番 URL に対するヘッドレス chrome での動作確認）を実施（reports/2026-08-07-production-verify.txt ほか）。
 
 ## ディレクトリ構成
 
 ```
-├── index.php            # モバイルUI（Bootstrap 5.3.3 CDN、標準JS）
-├── api.php              # JSON API（add / today / monthly / delete / login / logout / day / version）
+├── index.php            # モバイルUI（記録・今日一覧・削除・カレンダー過去閲覧・Bootstrap 5.3.3 CDN）
+├── admin.php            # 管理者画面（PW ダイアログ・日別集計・日詳細編集/削除・月報/年報/分析・Chart.js CDN）
+├── api.php              # JSON API（add / today / monthly / day / version は公開・delete / login / logout / auth / update / stats / yearly は要認証）
 ├── lib/
 │   ├── config.php       # 定数（DB_PATH / ADMIN_PW / APP_TZ / MAX_COUNT）
 │   ├── db.php           # PDO SQLite 接続 + スキーマ
@@ -93,11 +94,11 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 
 | スイート | 内容 | 実行 |
 |---|---|---|
-| 単体テスト | 記録・集計・削除・TZ固定・日詳細・更新検出のロジック（16ケース） | `php tests/run_tests.php` |
+| 単体テスト | 記録・集計・削除・TZ固定・日詳細・更新検出・update_record・get_stats・yearly のロジック（21チェック） | `php tests/run_tests.php` |
 | シードテスト | デモデータ投入の統計検証（8ケース） | `php tests/seed_demo_test.php` |
-| HTTPスモーク | API のステータスコード・PW認証スコープ・ログイン遅延・セキュリティヘッダ・day/version API（19ケース） | `bash tests/smoke_test.sh` |
-| UI E2E | 実ブラウザ（ヘッドレスchrome + CDP）で操作一連・日付クリック詳細・連動更新・自動更新（25チェック） | `node tests/e2e_ui.mjs`（別途サーバー起動） |
-| 本番受入 | 本番環境での受入（13ケース・ベースラインT0相対で実データを壊さない） | `PROD_PW=<PW> bash tests/production_check.sh <URL>` |
+| HTTPスモーク | API のステータスコード・PW認証スコープ・ログイン遅延・セキュリティヘッダ・公開化（monthly/day）・auth/update/stats API（25チェック） | `bash tests/smoke_test.sh` |
+| UI E2E | 実ブラウザ（ヘッドレスchrome + CDP）で操作一連・カレンダー閲覧・管理者画面（PW・集計・編集/削除・月報/年報/分析）（42チェック） | `node tests/e2e_ui.mjs`（別途サーバー起動） |
+| 本番受入 | 本番環境での受入（17ケース・ベースラインT0相対で実データを壊さない） | `PROD_PW=<PW> bash tests/production_check.sh <URL>` |
 
 ※ Docker検証（tests/docker_check.sh）は Docker テスト環境の終了（2026-08-07）に伴い廃止。環境レベルの検証は本番受入テストが担います。
 

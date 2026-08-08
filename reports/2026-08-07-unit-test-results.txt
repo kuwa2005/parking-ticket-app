@@ -14,5 +14,10 @@ PASS T13 day records asc
 PASS T14 day empty
 PASS T15 day boundary
 PASS T16 version count/maxId
+PASS T19 stats dow/hour/summary
+PASS T20 yearly totals
+PASS T17 update count
+PASS T18 update datetime
+PASS T19b update validation
 
-16/16 passed
+21/21 passed

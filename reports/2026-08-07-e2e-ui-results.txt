@@ -1,29 +1,46 @@
 connected to existing chrome
 PASS E1 initial total 0
 PASS E1 empty message
+PASS E1 admin link
 PASS E2 total=3
 PASS E2 one row
 PASS E2 row shows 3枚
 PASS E3 total=5
 PASS E3 two rows
-PASS E4 month panel visible
-PASS E4 pw dialog opens
-PASS E5 wrong pw error
-PASS E6 month table shown
-PASS E6 grand total 5
-PASS E6 dialog closes
-PASS E7 total=3 after delete
-PASS E7 one row left
-PASS E8 total=0 after delete
-PASS E8 empty again
-PASS E9 day cell clickable
-PASS E9 day dialog opens
-PASS E9 dialog title has 1件・1枚
-PASS E9 dialog shows row
-PASS E10 month grand total updates to 3
-PASS E10 today row updates to 3
-PASS E11 today total=8 after refreshNow
-PASS E11 today list has 3 rows
+PASS E4 calendar dialog opens
+PASS E4 today cell badge 5
+PASS E5 day dialog opens
+PASS E5 dialog shows 2 rows
+PASS E5 title 2件・5枚
+PASS E6 no delete in main day detail
+PASS E7 pw dialog opens
+PASS E8 wrong pw error
+PASS E8 total=3 after delete
+PASS E8 one row left
+PASS E9 total=0
+PASS E9 empty again
+PASS E10 today total=5 after refreshNow
+PASS E10 calendar badge updates to 5
+PASS E10 day dialog 1 row 5枚
+PASS E11 prev month grid
+PASS E11 empty day message
+PASS E12 admin pw dialog
+PASS E12 admin content hidden
+PASS E13 admin content shown
+PASS E13 month table shown
+PASS E13 today cell total 5
+PASS E13 admin day dialog
+PASS E13 edit/delete buttons
+PASS E14 mreport table
+PASS E14 mreport chart drawn
+PASS E15 summary total 5
+PASS E15 dow chart drawn
+PASS E15 hour chart drawn
+PASS E16 edit dialog opens
+PASS E16 row updated to 8枚
+PASS E16 table total 8
+PASS E17 row deleted
+PASS E17 table total 0
 pageErrors: none
 
-RESULT: 25/25 passed
+RESULT: 42/42 passed
