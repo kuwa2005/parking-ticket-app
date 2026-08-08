@@ -1,0 +1,65 @@
+parking-ticket-app — 本番ブラウザ UI 検証レポート（2026-08-09 JST）
+================================================================
+検証対象: 管理者画面ラウンド（専用管理者URL 新設）デプロイ版
+ハーネス: /tmp/park_prod_ui_check.mjs（CDP 駆動・読み取り専用・P1〜P9・低速実行版）
+
+1) 本番オリジン直接検証（https://debugprint.com/parking/）
+------------------------------------------------------------
+コアサーバー（b45.coreserver.jp）の IP 単位アクセス規制が繰り返し発動し、
+本番オリジンに対するフルブラウザ実行は完了できなかった。実測状況:
+
+- 1回目（01:43 頃・受入17/17 直後）: P1（index ロード・admin リンク・today-total）
+  まで PASS → P2（カレンダー）で 403 配信を検知して中断。ドメイン全体が 403
+  （parking/ だけでなく ルート・/about/ も）→ IP 単位一時規制と切り分け（SFTP 正常）。
+- 2回目（03:38 規制解除 → 03:40 再規制）: 受入17/17 再実行（03:39・PASS）→ ブラウザ
+  実行（03:40）が 403 で再規制（規制中に発生した 403 応答も含め 規制時間は約107分）。
+- 3回目（05:27 規制解除 → 05:28 再規制）: P1・P2 PASS（本番がアプリを正常配信する
+  ことをブラウザ実測で確認）→ 6月カレンダー取得時に 403 が混入し P2b 中断。
+  ※このとき初めて「本番は全 API を配信できているが、ページ発の連続 fetch が
+    短時間でも規制を誘発する」ことが確定（fetch デバッグで全 API 403 を観測）。
+
+→ 本番オリジンはブラウザ検証の連続アクセスに耐えない（coreserver のアクセス制限）。
+  本番オリジンに対するブラウザ実測は「P1・P2 PASS（= アプリが本番で正常に
+  ロード・表示される）」まで取得済み。
+
+2) 配置済みアーティファクト + 本番データでの完全ブラウザ検証（実測 16/16 PASS）
+------------------------------------------------------------------------------
+本番が検証の連続アクセスで規制されるため、**本番に配置されているのと同一の
+ファイル群**（SFTP mirror 取得・`diff -r` で byte 一致を確認済み）と、
+**本番 DB の SFTP 取得スナップショット**（401件・maxId=1204・本番と一致）を
+ローカルで配信（php -S 127.0.0.1:4502）し、同じブラウザハーネス（P1〜P9）を実行した。
+
+実行: node /tmp/park_prod_ui_check.mjs http://127.0.0.1:4502  （2026-08-09 05:49 JST）
+
+PASS P1 index loads
+PASS P1 admin link
+PASS P1 today-total numeric
+PASS P2 calendar opens, cells=31 today=1
+PASS P2b June 2026 badges>0 — badges=30
+PASS P2b day view read-only rows=5 del=0
+PASS P3 pw dialog shows
+PASS P3 admin-content hidden
+PASS P4 content shown after login
+PASS P4 monthly table visible
+PASS P5 monthly 2026-06 rows=31 — total=176
+PASS P6 admin day dialog rows=5 edit=5 del=5
+PASS P7 mreport rows=31 chart
+PASS P8 analysis total=176
+PASS P8 dow/hour charts
+PASS P9 pageErrors none
+
+RESULT: 16/16 passed
+
+3) 検証の意味
+------------
+- 本番に配信中のファイル群（admin.php 23030B・index.php・api.php・lib/）と
+  本番 DB（401件デモデータ）の組み合わせを、実ブラウザ（headless Chrome）で
+  動作確認: メイン表示・カレンダー過去閲覧（6月バッジ30日・日詳細は見るだけ・
+  削除ボタンなし）・管理者画面（PW ダイアログ→認証→日別集計 2026-06 = 31行
+  total=176・日詳細 編集/削除ボタン各5・月報 31行+棒グラフ・分析 total=176+
+  曜日/時間帯チャート）・JS エラーなし。
+- 本番オリジンの HTTP 経路自体は、受入テスト（production_check.sh 17/17・
+  2026-08-09 03:39 再実行 PASS）が検証済み。
+- admin.php は競合状態修正版（レンダートークン方式・stale 応答を破棄）を
+  03:27 に本番へ再配置済み（23030B・旧 22487B）。P7 の最終状態 31 行は
+  修正版で実測済み（修正前は 32 行になる競合があった）。

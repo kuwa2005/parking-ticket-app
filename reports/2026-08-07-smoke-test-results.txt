@@ -10,7 +10,7 @@ PASS 9 delete no-auth 401
 PASS 10 delete authed 204
 PASS 11 delete again 404
 PASS 12 today total=0 after delete
-PASS 13 login wrong pw throttled (1064ms)
+PASS 13 login wrong pw throttled (1017ms)
 PASS 14 index.php セキュリティヘッダ3種
 PASS 15 day no-auth 200
 PASS 16 day invalid date 400

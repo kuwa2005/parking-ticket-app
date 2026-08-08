@@ -267,8 +267,11 @@ populateYears('a-yr-year');
 populateYears('a-an-year'); populateMonths('a-an-month', true);
 
 // ---------- 日別集計 ----------
+let monthlyToken = 0;
 async function renderMonthly() {
+  const token = ++monthlyToken;
   const { status, data } = await api('GET', 'monthly&year=' + $('a-year').value + '&month=' + $('a-month').value);
+  if (token !== monthlyToken) return; // 連続操作時は古い応答を破棄
   if (status === 400) { $('a-month-err').textContent = '指定が不正です'; return; }
   $('a-month-err').textContent = '';
   const tbody = $('a-month-table').querySelector('tbody');
@@ -429,8 +432,11 @@ function drawChart(key, canvasId, labels, data, label) {
 }
 
 // ---------- 月報 ----------
+let mreportToken = 0;
 async function renderMonthlyReport() {
+  const token = ++mreportToken;
   const { status, data } = await api('GET', 'monthly&year=' + $('a-mr-year').value + '&month=' + $('a-mr-month').value);
+  if (token !== mreportToken) return; // 連続操作時は古い応答を破棄
   if (status !== 200) return;
   const tbody = $('a-mreport-table').querySelector('tbody');
   tbody.textContent = '';
@@ -464,8 +470,11 @@ async function renderMonthlyReport() {
 }
 
 // ---------- 年報 ----------
+let yreportToken = 0;
 async function renderYearlyReport() {
+  const token = ++yreportToken;
   const { status, data } = await api('GET', 'yearly&year=' + $('a-yr-year').value);
+  if (token !== yreportToken) return; // 連続操作時は古い応答を破棄
   if (status !== 200) return;
   const tbody = $('a-yreport-table').querySelector('tbody');
   tbody.textContent = '';
@@ -499,10 +508,13 @@ async function renderYearlyReport() {
 }
 
 // ---------- 分析 ----------
+let analysisToken = 0;
 async function renderAnalysis() {
+  const token = ++analysisToken;
   const year = $('a-an-year').value;
   const month = $('a-an-month').value;
   const { status, data } = await api('GET', 'stats&year=' + year + '&month=' + month);
+  if (token !== analysisToken) return; // 連続操作時は古い応答を破棄
   if (status !== 200) return;
   const empty = data.summary.total === 0;
   $('a-analysis-empty').hidden = !empty;
