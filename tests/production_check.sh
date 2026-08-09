@@ -104,6 +104,16 @@ mday=$(printf '%s' "$mresp" | grep -o '"date":' | wc -l)
 code=$(curl -sk --max-time 20 -o /dev/null -w '%{http_code}' "$BASE/api.php?action=day&date=2026-06-01")
 if [ "$mday" = "30" ] && [ "$code" = "200" ]; then ok "T17 monthly no-auth 200（30日）+ day no-auth 200"; else ng "T17 monthly/day no-auth" "monthly_days=$mday day_code=$code"; fi
 
+# T18: add_record 未認証 → 401（過去日追加は要認証・2026-08-09 ラウンド R4）
+code=$(curl -sk --max-time 20 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"count":2,"date":"2026-08-01","time":"10:30"}' "$BASE/api.php?action=add_record")
+if [ "$code" = "401" ]; then ok "T18 add_record no-auth → 401"; else ng "T18 add_record no-auth" "code=$code"; fi
+
+# T19: add_record 認証済み・不正値 → 400（count=0 / date 実在しない / time 範囲外）
+r1=$(curl -sk --max-time 20 -b "$JAR" -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"count":0,"date":"2026-08-01","time":"10:30"}' "$BASE/api.php?action=add_record")
+r2=$(curl -sk --max-time 20 -b "$JAR" -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"count":2,"date":"2026-02-31","time":"10:30"}' "$BASE/api.php?action=add_record")
+r3=$(curl -sk --max-time 20 -b "$JAR" -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"count":2,"date":"2026-08-01","time":"25:00"}' "$BASE/api.php?action=add_record")
+if [ "$r1" = "400" ] && [ "$r2" = "400" ] && [ "$r3" = "400" ]; then ok "T19 add_record invalid → 400（count/date/time）"; else ng "T19 add_record invalid" "count=$r1 date=$r2 time=$r3"; fi
+
 rm -f "$JAR" "$OUT"
 echo
 echo "RESULT: $PASS passed, $FAIL failed"
