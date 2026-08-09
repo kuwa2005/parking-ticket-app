@@ -116,6 +116,28 @@ switch ($action) {
         respond(200, ['ok' => true, 'record' => $result['record']]);
         break;
     }
+    case 'add_record': {
+        require_auth();
+        $in = read_json_body();
+        $count = $in['count'] ?? null;
+        if (!is_int($count) || $count < 1 || $count > MAX_COUNT) {
+            respond(400, ['error' => 'count must be an integer between 1 and ' . MAX_COUNT]);
+        }
+        $date = $in['date'] ?? null;
+        if (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+            || !checkdate((int)substr($date, 5, 2), (int)substr($date, 8, 2), (int)substr($date, 0, 4))) {
+            respond(400, ['error' => 'invalid date']);
+        }
+        $time = $in['time'] ?? null;
+        if (!is_string($time) || !preg_match('/^\d{2}:\d{2}$/', $time)
+            || (int)substr($time, 0, 2) > 23 || (int)substr($time, 3, 2) > 59) {
+            respond(400, ['error' => 'invalid time']);
+        }
+        $rec = add_record($db, $count, new DateTimeImmutable($date . ' ' . $time . ':00', new DateTimeZone(APP_TZ)));
+        if ($rec === null) { respond(400, ['error' => 'count must be an integer between 1 and ' . MAX_COUNT]); }
+        respond(201, $rec);
+        break;
+    }
     case 'stats': {
         require_auth();
         $year = $_GET['year'] ?? null;

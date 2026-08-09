@@ -1,0 +1,68 @@
+管理者画面改修ラウンド 検証結果（グラフ位置・時間帯範囲・日詳細追加）
+=====================================================================
+日時: 2026-08-09（実働・ローカル検証）
+ラウンド: R1〜R4（HEARING Q1〜Q4 + Requirements Lock Approved [Never-Ask] 自律）
+
+要件（ユーザー逐語）
+------------------
+R1/R2: 「管理者画面の日報、月報、年報に表示されているグラフは明細の上に移動して」
+       → 月報タブ・年報タブのグラフ（canvas）を明細テーブルの上へ HTML 移動
+       （日別集計タブはグラフなし・分析タブは明細なしのため対象外 — Q1 自律決定）
+R3: 「分析の時間帯別（枚数）の時間帯は、２４時間は不要。実データに基づいて最小時間、最大時間より表示幅（時間）を決めて」
+       → 時間帯別グラフを実データの最小〜最大時間の連続範囲に（hourLabels スライス・API 無変更）
+       （範囲内の 0 枚時間帯は 0 表示で時間軸の文脈を維持 — Q2 自律決定）
+R4: 「日別集計で各日付をクリックした詳細画面に「追加」ボタンを。つけ忘れた記録を管理者権限で追加。枚数と時間を入力。日付は選択日」
+       → 日詳細ダイアログに「追加」ボタン + 新規 #a-add-dialog モーダル
+       （時間は分単位 HH:MM — Q3・別モーダル — Q4 自律決定）
+       api.php に要認証アクション `add_record` 新設（require_auth()・{count,date,time} 検証・成功 201/400/401）
+       既存公開 add（今日のみ）は無変更 — 認証条件分岐を作らずバイパス不能
+
+実装
+----
+- admin.php: 月報/年報パネルの canvas を table の上へ移動（HTML）・renderAnalysis の hourLabels を [hMin..hMax] にスライス・#a-day-add ボタン + #a-add-dialog（#a-add-count/time/title/err）+ openAddDialog/saveAdd + aAddModalShown 追跡
+- api.php: case 'add_record'（119-140 行）: require_auth → count 1..999 / date checkdate / time HH:MM（時<=23・分<=59）→ add_record($db,$count,DateTimeImmutable("$date $time:00",APP_TZ)) → 201
+- store.php: 変更なし（add_record は第 2 引数で日時指定可能 — 既存機能を利用）
+
+テスト追加（spec S4 T1〜T5 対応）
+-------------------------------
+- tests/run_tests.php: T21（過去日時 2026-08-01 09:30:00 の add_record → created_at 一致 + get_day total=2）
+- tests/smoke_test.sh: 27〜31（未認証 add_record 401 / 認証 201 + created_at / count=0 400 / date 2026-02-31 400 / time 25:00 400）
+- tests/e2e_ui.mjs: E14 + グラフ位置（月報）/ 新規 E21（年報 表+canvas+位置）/ E15 + 時間帯 labels データ駆動 / 新規 E22（日詳細追加 UI 6 チェック）
+
+テスト実測（fresh・全回帰）
+--------------------------
+- 単体テスト:  php tests/run_tests.php         → 22/22 PASS
+- HTTPスモーク: bash tests/smoke_test.sh        → 30/30 PASS
+- UI E2E:      node tests/e2e_ui.mjs           → 74/74 PASS（pageErrors: none）
+  ※ E2E は chrome:9222 先起動 + php -S 127.0.0.1:4500（PARK_DB_PATH=/tmp/park_e2e.db 空 DB）で実施。
+    チェック数 74 = 既存 63 + 新規 11（E14 +1 / E21 +3 / E15b +1 / E22 +6）— spec 想定 75 と
+    1 差（既知の傾向: 実測チェック数は spec 想定と異なり得る）。
+
+E2E で検出・修正したバグ（実装フェーズ）
+---------------------------------------
+- 症状: 追加モーダルで OK を押してもモーダルが閉じない（追加自体は成功）
+- 原因: Bootstrap 5.3.3 の Modal.hide() は「表示遷移中（_isTransitioning=true）は no-op」。
+        開いてすぐ（300ms 以内）OK を押すと hide() が早期 return しモーダルが残る
+        （E22 のテストが高速クリックのため顕在化）
+- 修正: aAddModalShown（shown.bs.modal/hidden.bs.modal で追跡）を追加し、
+        saveAdd で非表示中なら shown イベントを await してから hide() する（admin.php）
+- 注記: 同一の潜在 race が既存 aEditModal.hide()（編集ダイアログ）にも存在するが、
+        本ラウンド範囲外のため変更していない（要望あれば次ラウンドで同パターン修正）
+
+受入基準チェック（spec S5 A1〜A6）
+---------------------------------
+- [x] A1: 月報タブでグラフが明細テーブルの上（E14 位置チェック PASS）
+- [x] A2: 年報タブでグラフが明細テーブルの上（E21 PASS）
+- [x] A3: 時間帯別グラフが実データの最小〜最大の連続範囲のみ（E15b データ駆動 PASS）
+- [x] A4: 日詳細に「追加」ボタン・枚数+時間で選択日に追加（E22 PASS・unit T21 PASS）
+- [x] A5: 過去日追加は要認証 — 未認証 401（smoke 27 PASS）
+- [x] A6: 全回帰 PASS（unit 22/22・smoke 30/30・E2E 74/74）+ 本レポート記録 + コミット・push
+
+変更ファイル
+------------
+- M admin.php（R1〜R4 実装 + モーダル close race 修正）
+- M api.php（add_record 要認証アクション）
+- M tests/run_tests.php / tests/smoke_test.sh / tests/e2e_ui.mjs（T21 / 27〜31 / E14b・E21・E15b・E22）
+- M README.md（テスト表 22/30/74 チェックに更新）
+- A docs/compose/specs/2026-08-09-admin-report-chart-position-hearing.md
+- A docs/compose/specs/2026-08-09-admin-report-chart-position-spec.md

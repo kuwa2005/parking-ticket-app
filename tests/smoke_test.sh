@@ -176,6 +176,36 @@ else
   ng "26 stats authed" "stats=$resp yearly=$yresp"
 fi
 
+# 27. add_record 未認証（別クッキー）→ 401（過去日追加は管理者権限・R4）
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR2" -X POST -H 'Content-Type: application/json' \
+  -d '{"count":2,"date":"2026-08-01","time":"09:30"}' "$BASE/api.php?action=add_record")
+if [ "$code" = "401" ]; then ok "27 add_record no-auth 401"; else ng "27 add_record no-auth" "code=$code"; fi
+
+# 28. add_record 認証済み（過去日 2026-08-01 09:30）→ 201 + created_at が指定日時
+resp=$(curl -s -w '\n%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' \
+  -d '{"count":2,"date":"2026-08-01","time":"09:30"}' "$BASE/api.php?action=add_record")
+code=${resp##*$'\n'}; body=${resp%$'\n'*}
+if [ "$code" = "201" ] && printf '%s' "$body" | grep -q '"created_at":"2026-08-01 09:30:00"'; then
+  ok "28 add_record authed 201 (2026-08-01 09:30:00)"
+else
+  ng "28 add_record authed" "code=$code body=$body"
+fi
+
+# 29. add_record count=0 → 400
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' \
+  -d '{"count":0,"date":"2026-08-01","time":"09:30"}' "$BASE/api.php?action=add_record")
+if [ "$code" = "400" ]; then ok "29 add_record count=0 400"; else ng "29 add_record count=0" "code=$code"; fi
+
+# 30. add_record date 形式不正（2026-02-31 は実在しない日付）→ 400
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' \
+  -d '{"count":1,"date":"2026-02-31","time":"09:30"}' "$BASE/api.php?action=add_record")
+if [ "$code" = "400" ]; then ok "30 add_record invalid date 400"; else ng "30 add_record invalid date" "code=$code"; fi
+
+# 31. add_record time 形式不正（25:00）→ 400
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H 'Content-Type: application/json' \
+  -d '{"count":1,"date":"2026-08-01","time":"25:00"}' "$BASE/api.php?action=add_record")
+if [ "$code" = "400" ]; then ok "31 add_record invalid time 400"; else ng "31 add_record invalid time" "code=$code"; fi
+
 echo
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]

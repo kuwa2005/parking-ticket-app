@@ -94,10 +94,10 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 
 | スイート | 内容 | 実行 |
 |---|---|---|
-| 単体テスト | 記録・集計・削除・TZ固定・日詳細・更新検出・update_record・get_stats・yearly のロジック（21チェック） | `php tests/run_tests.php` |
+| 単体テスト | 記録・集計・削除・TZ固定・日詳細・更新検出・update_record・get_stats・yearly・過去日時 add_record のロジック（22チェック） | `php tests/run_tests.php` |
 | シードテスト | デモデータ投入の統計検証（8ケース） | `php tests/seed_demo_test.php` |
-| HTTPスモーク | API のステータスコード・PW認証スコープ・ログイン遅延・セキュリティヘッダ・公開化（monthly/day）・auth/update/stats API（25チェック） | `bash tests/smoke_test.sh` |
-| UI E2E | 実ブラウザ（ヘッドレスchrome + CDP）で操作一連・カレンダー閲覧（7列レイアウト検査含む）・管理者画面（PW・集計・編集/削除・月報/年報/分析・ログアウト・前月/翌月ボタン）（63チェック） | `node tests/e2e_ui.mjs`（別途サーバー起動） |
+| HTTPスモーク | API のステータスコード・PW認証スコープ・ログイン遅延・セキュリティヘッダ・公開化（monthly/day）・auth/update/stats・add_record（要認証・過去日追加）API（30チェック） | `bash tests/smoke_test.sh` |
+| UI E2E | 実ブラウザ（ヘッドレスchrome + CDP）で操作一連・カレンダー閲覧（7列レイアウト検査含む）・管理者画面（PW・集計・編集/削除・月報/年報/分析・グラフ位置/時間帯範囲・日詳細追加・ログアウト・前月/翌月ボタン）（74チェック） | `node tests/e2e_ui.mjs`（別途サーバー起動） |
 | 本番受入 | 本番環境での受入（17ケース・ベースラインT0相対で実データを壊さない） | `PROD_PW=<PW> bash tests/production_check.sh <URL>` |
 
 ※ Docker検証（tests/docker_check.sh）は Docker テスト環境の終了（2026-08-07）に伴い廃止。環境レベルの検証は本番受入テストが担います。

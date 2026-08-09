@@ -165,6 +165,12 @@ check('T19b update validation',
     && update_record($db, $r2['id'], 1000, null) === ['ok' => false, 'error' => 'invalid_count']
     && update_record($db, $r2['id'], null, '2026-08-07 10:00') === ['ok' => false, 'error' => 'invalid_datetime']);
 
+// T21: 過去日時を指定した add_record（R4: 日別集計からの過去日追加の store 基盤 — 指定日時で挿入される）
+$past = add_record($db, 2, new DateTimeImmutable('2026-08-01 09:30:00', $tz));
+check('T21 add_record with past datetime', is_array($past)
+    && $past['count'] === 2 && $past['created_at'] === '2026-08-01 09:30:00'
+    && get_day($db, '2026-08-01')['total'] === 2);
+
 $passCount = count(array_filter($results, fn($r) => $r['pass']));
 echo "\n$passCount/" . count($results) . " passed\n";
 exit($passCount === count($results) ? 0 : 1);

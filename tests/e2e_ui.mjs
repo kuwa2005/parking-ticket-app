@@ -268,16 +268,46 @@ async function main() {
   await evaluate("bootstrap.Modal.getInstance(document.getElementById('a-day-dialog')).hide();");
   await waitFor("!document.getElementById('a-day-dialog').classList.contains('show')");
 
-  // E14: 月報タブ → 表 + グラフ（canvas 描画）
+  // E14: 月報タブ → 表 + グラフ（canvas 描画）+ グラフが表の上（R1）
   await evaluate("document.getElementById('atab-mreport').click();");
   check('E14 mreport table', await waitFor("document.getElementById('a-mreport-table').hidden === false"));
   check('E14 mreport chart drawn', await waitFor("document.getElementById('a-mreport-chart').width > 0"));
+  check('E14 chart above table', await evaluate(`(() => {
+    const c = document.getElementById('a-mreport-chart'), t = document.getElementById('a-mreport-table');
+    return !!(c.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })()`));
+
+  // E21: 年報タブ → 表 + グラフ（canvas 描画）+ グラフが表の上（R2）
+  await evaluate("document.getElementById('atab-yreport').click();");
+  check('E21 yreport table', await waitFor("document.getElementById('a-yreport-table').hidden === false"));
+  check('E21 yreport chart drawn', await waitFor("document.getElementById('a-yreport-chart').width > 0"));
+  check('E21 chart above table', await evaluate(`(() => {
+    const c = document.getElementById('a-yreport-chart'), t = document.getElementById('a-yreport-table');
+    return !!(c.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })()`));
 
   // E15: 分析タブ → 期間サマリ + 曜日別/時間帯別グラフ
   await evaluate("document.getElementById('atab-analysis').click();");
   check('E15 summary total 5', await waitFor("document.getElementById('a-summary-total').textContent === '5'"));
   check('E15 dow chart drawn', await waitFor("document.getElementById('a-dow-chart').width > 0"));
   check('E15 hour chart drawn', await waitFor("document.getElementById('a-hour-chart').width > 0"));
+
+  // E15b: 時間帯別グラフは実データの最小〜最大時間の連続範囲のみ（R3・データ駆動）
+  const hr = await evaluate(`(async () => {
+    const y = document.getElementById('a-an-year').value, m = document.getElementById('a-an-month').value;
+    const r = await fetch('api.php?action=stats&year=' + y + '&month=' + m);
+    const d = await r.json();
+    let hMin = 23, hMax = 0;
+    d.hour.forEach((h, i) => { if (h.sum > 0) { if (i < hMin) hMin = i; if (i > hMax) hMax = i; } });
+    const ch = window.Chart.getChart('a-hour-chart');
+    return { hMin, hMax, labels: ch ? ch.data.labels : null };
+  })()`);
+  check('E15b hour labels = min..max continuous', hr.labels !== null
+    && hr.labels.length === hr.hMax - hr.hMin + 1
+    && hr.labels.length < 24
+    && hr.labels[0] === hr.hMin + '時'
+    && hr.labels[hr.labels.length - 1] === hr.hMax + '時',
+    JSON.stringify(hr));
 
   // E16: 集計タブ → 日詳細で編集（5→8）→ 行・集計テーブルに反映
   await evaluate("document.getElementById('atab-monthly').click();");
@@ -300,6 +330,18 @@ async function main() {
   await evaluate("document.querySelector('#a-day-list .del').click();");
   check('E17 row deleted', await waitFor("document.querySelectorAll('#a-day-list .record-row').length === 0"));
   check('E17 table total 0', await waitFor(`(() => { const cell = [...document.querySelectorAll('#a-month-table tbody tr td.a-day-link')].find(td => td.textContent.trim() === '${md}'); return cell ? cell.parentElement.querySelector('td:last-child').textContent === '0' : false; })()`));
+
+  // E22: 日詳細の「追加」→ モーダルで枚数+時間 → 選択日（今日）に記録追加（R4）
+  check('E22 add button exists', await evaluate("document.getElementById('a-day-add') !== null"));
+  await evaluate("document.getElementById('a-day-add').click();");
+  check('E22 add dialog opens', await waitFor("document.getElementById('a-add-dialog')?.classList.contains('show')"));
+  await evaluate("document.getElementById('a-add-count').value = '2';");
+  await evaluate("document.getElementById('a-add-time').value = '10:30';");
+  await evaluate("document.getElementById('a-add-ok').click();");
+  check('E22 add dialog closes', await waitFor("!document.getElementById('a-add-dialog').classList.contains('show')"));
+  check('E22 row added 10:30 2枚', await waitFor("document.querySelectorAll('#a-day-list .record-row').length === 1 && document.getElementById('a-day-list').textContent.includes('10:30') && document.getElementById('a-day-list').textContent.includes('2 枚')"));
+  check('E22 table total 2', await waitFor(`(() => { const cell = [...document.querySelectorAll('#a-month-table tbody tr td.a-day-link')].find(td => td.textContent.trim() === '${md}'); return cell ? cell.parentElement.querySelector('td:last-child').textContent === '2' : false; })()`));
+  check('E22 new row has edit/delete', await evaluate("document.querySelectorAll('#a-day-list .edit').length === 1 && document.querySelectorAll('#a-day-list .del').length === 1"));
 
   // E19: ログアウト（記録画面へボタン・確認なし）→ セッション破棄で PW 再要求
   check('E19 admin content visible before logout', (await evaluate("document.getElementById('admin-content').hidden")) === false);

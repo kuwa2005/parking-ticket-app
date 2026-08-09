@@ -63,12 +63,12 @@ header('Referrer-Policy: no-referrer');
           <select id="a-mr-month" class="form-select form-select-lg"></select>
           <button id="a-mr-btn" class="btn btn-primary btn-lg flex-shrink-0">表示</button>
         </div>
-        <table class="table table-sm" id="a-mreport-table" hidden>
+        <h3 class="h6">日別合計の推移</h3>
+        <div style="height:220px"><canvas id="a-mreport-chart"></canvas></div>
+        <table class="table table-sm mt-3" id="a-mreport-table" hidden>
           <thead><tr><th class="text-start">日付</th><th class="text-end">枚数</th></tr></thead>
           <tbody></tbody>
         </table>
-        <h3 class="h6 mt-3">日別合計の推移</h3>
-        <div style="height:220px"><canvas id="a-mreport-chart"></canvas></div>
       </div>
     </div>
 
@@ -79,12 +79,12 @@ header('Referrer-Policy: no-referrer');
           <select id="a-yr-year" class="form-select form-select-lg"></select>
           <button id="a-yr-btn" class="btn btn-primary btn-lg flex-shrink-0">表示</button>
         </div>
-        <table class="table table-sm" id="a-yreport-table" hidden>
+        <h3 class="h6">月別合計の推移</h3>
+        <div style="height:220px"><canvas id="a-yreport-chart"></canvas></div>
+        <table class="table table-sm mt-3" id="a-yreport-table" hidden>
           <thead><tr><th class="text-start">月</th><th class="text-end">枚数</th></tr></thead>
           <tbody></tbody>
         </table>
-        <h3 class="h6 mt-3">月別合計の推移</h3>
-        <div style="height:220px"><canvas id="a-yreport-chart"></canvas></div>
       </div>
     </div>
 
@@ -147,6 +147,31 @@ header('Referrer-Policy: no-referrer');
       </div>
       <div class="modal-body">
         <div id="a-day-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="a-day-add" class="btn btn-primary">追加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 管理者 追加モーダル（日付は選択中の日付・固定） -->
+<div class="modal fade" id="a-add-dialog" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title h6" id="a-add-title">記録を追加</h3>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="a-add-count">枚数（1〜999）</label>
+        <input type="number" id="a-add-count" class="form-control" min="1" max="999" inputmode="numeric">
+        <label class="form-label mt-2" for="a-add-time">時間</label>
+        <input type="time" id="a-add-time" class="form-control">
+        <div class="text-danger small mt-2" id="a-add-err"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="a-add-cancel" class="btn btn-outline-secondary">キャンセル</button>
+        <button id="a-add-ok" class="btn btn-primary">追加</button>
       </div>
     </div>
   </div>
@@ -339,9 +364,9 @@ function shiftMonth(delta) {
 $('a-month-prev').addEventListener('click', () => shiftMonth(-1));
 $('a-month-next').addEventListener('click', () => shiftMonth(1));
 
-// ---------- 日詳細（編集・削除） ----------
+// ---------- 日詳細（追加・編集・削除） ----------
 const aDayModal = new bootstrap.Modal($('a-day-dialog'), { backdrop: 'static', keyboard: false });
-let aDayModalVisible = false;
+let aDayModalVisible = false, aDayDate = null;
 $('a-day-dialog').addEventListener('shown.bs.modal', () => { aDayModalVisible = true; });
 $('a-day-dialog').addEventListener('hidden.bs.modal', () => { aDayModalVisible = false; });
 $('a-day-close').addEventListener('click', () => aDayModal.hide());
@@ -352,6 +377,7 @@ async function openAdminDayDetail(date) {
 }
 
 async function renderAdminDayDetail(date) {
+  aDayDate = date;
   const { status, data } = await api('GET', 'day&date=' + date);
   if (status !== 200) { toast('読み込みに失敗しました'); return; }
   const dt = new Date(date + 'T00:00:00');
@@ -430,6 +456,56 @@ async function saveEdit() {
 
 $('a-edit-ok').addEventListener('click', saveEdit);
 $('a-edit-cancel').addEventListener('click', () => aEditModal.hide());
+
+// ---------- 追加（過去日の記録・要認証） ----------
+const aAddModal = new bootstrap.Modal($('a-add-dialog'), { backdrop: 'static', keyboard: false });
+let aAddModalShown = false;
+$('a-add-dialog').addEventListener('shown.bs.modal', () => { aAddModalShown = true; });
+$('a-add-dialog').addEventListener('hidden.bs.modal', () => { aAddModalShown = false; });
+
+function openAddDialog(date) {
+  $('a-add-count').value = 1;
+  $('a-add-time').value = '';
+  $('a-add-err').textContent = '';
+  const dt = new Date(date + 'T00:00:00');
+  $('a-add-title').textContent = `記録を追加（${dt.getMonth() + 1}月${dt.getDate()}日）`;
+  aAddModal.show();
+}
+
+async function saveAdd() {
+  const count = parseInt($('a-add-count').value, 10);
+  if (!Number.isInteger(count) || count < 1 || count > 999) {
+    $('a-add-err').textContent = '枚数は1〜999で入力してください';
+    return;
+  }
+  const time = $('a-add-time').value;
+  if (!/^\d{2}:\d{2}$/.test(time)) {
+    $('a-add-err').textContent = '時間を入力してください';
+    return;
+  }
+  const { status } = await api('POST', 'add_record', { count, date: aDayDate, time });
+  if (status === 201) {
+    $('a-add-err').textContent = '';
+    // Bootstrap の hide() は表示遷移中は no-op のため、表示完了を待ってから閉じる
+    if (!aAddModalShown) {
+      await new Promise(res => $('a-add-dialog').addEventListener('shown.bs.modal', res, { once: true }));
+    }
+    aAddModal.hide();
+    toast('追加しました');
+    await renderAdminDayDetail(aDayDate);
+    await renderMonthly();
+  } else if (status === 401) {
+    $('a-add-err').textContent = '認証が必要です';
+  } else if (status === 400) {
+    $('a-add-err').textContent = '入力が正しくありません';
+  } else {
+    $('a-add-err').textContent = 'エラーが発生しました';
+  }
+}
+
+$('a-day-add').addEventListener('click', () => openAddDialog(aDayDate));
+$('a-add-ok').addEventListener('click', saveAdd);
+$('a-add-cancel').addEventListener('click', () => aAddModal.hide());
 
 // ---------- 削除 ----------
 async function deleteAdminRecord(id, date) {
@@ -552,8 +628,10 @@ async function renderAnalysis() {
   $('a-summary-avg').textContent = data.summary.avg_per_day;
   const dowLabels = ['日', '月', '火', '水', '木', '金', '土'];
   drawChart('dow', 'a-dow-chart', dowLabels, data.dow.map(d => d.sum), '枚数');
-  const hourLabels = Array.from({ length: 24 }, (_, i) => i + '時');
-  drawChart('hour', 'a-hour-chart', hourLabels, data.hour.map(h => h.sum), '枚数');
+  let hMin = 23, hMax = 0;
+  data.hour.forEach((h, i) => { if (h.sum > 0) { if (i < hMin) hMin = i; if (i > hMax) hMax = i; } });
+  const hourLabels = Array.from({ length: hMax - hMin + 1 }, (_, i) => (hMin + i) + '時');
+  drawChart('hour', 'a-hour-chart', hourLabels, data.hour.slice(hMin, hMax + 1).map(h => h.sum), '枚数');
 }
 
 // ---------- タブ切替・初期化 ----------
