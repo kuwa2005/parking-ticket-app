@@ -71,6 +71,8 @@ define('ADMIN_PW', '1234');
 
 Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルのみで動作します。完全オフラインのLANで使う場合は Bootstrap をローカル配置に切り替えてください。
 
+**デプロイ一式は GitHub Releases から取得できます**（v1.0.0 以降・GitHub Actions で自動生成された zip = アプリ一式 + README + LICENSE）: https://github.com/kuwa2005/parking-ticket-app/releases
+
 **本番デプロイ実績（2026-08-07）**: coreserver.jp 共有ホスティングのサブディレクトリにデプロイし、受入テスト 10/10 PASS（記録・集計・認証・削除・DB直アクセス拒否・誤PWスロットル・セキュリティヘッダ）を確認済み。公開 URL は https://debugprint.com/parking/ （詳細: reports/2026-08-07-production-deploy.txt）。同日、ユーザーによる本番直接改修（DEMO 化）をリポジトリへ反映し、本番を正規シードで再投入・受入テスト 10/10 PASS（reports/2026-08-07-production-verify.txt）。**DEMO 運用のため本番の管理パスワードは 1234 です**（デモ用のためパスワードは形式的なもの — UI に注記表示）。**新機能ラウンド（同日）**: 日付クリック詳細モーダル・集計表示中の記録連動・60 秒自動更新チェックを本番へ直接デプロイし、受入テスト 13/13 PASS（reports/2026-08-07-production-verify.txt）。**管理者画面ラウンド（2026-08-09）**: 専用管理者 URL（/admin.php）新設（PW ダイアログ → 日別集計・日詳細編集/削除・月報/年報/分析）とメイン再編（カレンダー過去閲覧・PW なし公開）を本番へ直接デプロイ。受入テスト **17/17 PASS**・ブラウザ UI 検証（本番 URL に対するヘッドレス chrome での動作確認）を実施（reports/2026-08-07-production-verify.txt ほか）。**カレンダー・管理者画面改善ラウンド（同日）**: カレンダー 7 列グリッド修正・管理者画面へのログアウト内蔵・前月/翌月ボタンをデプロイ（受入 17/17 PASS・ブラウザ 16/16 PASS）。**グラフ表示変更 + 過去日追加ラウンド（同日・コミット 44f0709 → リリース証跡 6dc1c7f）**: 月報/年報グラフを明細の上へ・時間帯別グラフを実データ範囲へ・日詳細に「追加」ボタン（要認証 add_record）を本番へデプロイ。受入テスト **19/19 PASS**（add_record 401/400 検証含む）・ブラウザ UI 検証 **11/11 PASS**・デモデータ 402 件無傷（reports/2026-08-09-admin-round-chart-add-release.txt）。
 
 ## ディレクトリ構成
@@ -87,7 +89,10 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 ├── tests/               # テスト一式（下記）
 ├── Dockerfile           # php:8.3-apache ベース
 ├── docker-compose.yml   # ポート 4500:80 / ./data マウント / restart: unless-stopped
-└── entrypoint.sh        # 起動時の権限調整（www-data への chown など）
+├── entrypoint.sh        # 起動時の権限調整（www-data への chown など）
+├── LICENSE              # MIT License（Copyright (c) 2026 kuwa2005）
+├── .github/workflows/   # release.yml: v* タグ push でデプロイ一式 zip をビルドし GitHub Release を作成
+└── scripts/             # seed_demo.php（デモデータ生成・決定論的）
 ```
 
 ## テスト
@@ -113,3 +118,7 @@ Bootstrap は CDN（jsDelivr）参照のため、アプリはPHPファイルの�
 - `data/.htaccess` により DB ファイルの直接ダウンロードは遮断されます（Apache環境。`php -S` では機能しないため注意）
 - セキュリティヘッダ（X-Content-Type-Options / X-Frame-Options / Referrer-Policy）を送信し、Apache/PHP のバージョンは非開示です
 - セキュリティ監査（静的レビュー + 攻撃的アクセステスト）の結果は [セキュリティ監査レポート.md](セキュリティ監査レポート.md) を参照してください
+
+## ライセンス
+
+このアプリは [MIT License](LICENSE) の下で公開されています（Copyright (c) 2026 kuwa2005）。商用利用・改変・再配布は自由ですが、著作権表示と本許諾表示の保持が必要です。詳細は [LICENSE](LICENSE) を参照してください。

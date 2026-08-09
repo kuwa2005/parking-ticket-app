@@ -1,0 +1,27 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: デプロイ一式 zip を生成
+        run: bash scripts/build_release.sh
+
+      - name: GitHub Release を作成・アセットを添付
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/parking-ticket-app-$GITHUB_REF_NAME.zip" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "parking-ticket-app $GITHUB_REF_NAME（MIT License・Copyright (c) 2026 kuwa2005）。レンタルサーバー（PHP + SQLite・汎用ホスティング）へのデプロイ一式 zip。収録: index.php / admin.php / api.php / lib/config.php / lib/db.php / lib/store.php / data/.htaccess / scripts/seed_demo.php / README.md / LICENSE。配置手順は README.md を参照。"

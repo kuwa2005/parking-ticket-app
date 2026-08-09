@@ -14,11 +14,13 @@ specs:
   - docs/compose/specs/2026-08-09-admin-report-chart-position-spec.md
   - docs/compose/specs/2026-08-09-docs-consistency-hearing.md
   - docs/compose/specs/2026-08-09-docs-consistency-spec.md
+  - docs/compose/specs/2026-08-09-mit-license-and-release-hearing.md
+  - docs/compose/specs/2026-08-09-mit-license-and-release-spec.md
 plans:
   - docs/compose/plans/2026-08-07-parking-ticket-app.md
   - docs/compose/plans/2026-08-07-day-detail-refresh.md
 branch: main
-commits: 98f5807..6dc1c7f — 初期実装 → 監査・F1〜F4 → 本番デプロイ・DEMO化 → 新機能 → 管理者画面 → カレンダー7列/ログアウト/前月翌月（2adbed4）→ SSH 知識整理（92bdeba）→ グラフ位置/時間帯範囲/日詳細追加（44f0709 + リリース証跡 6dc1c7f）→ ドキュメント整合（本ラウンド）
+commits: 98f5807..6dc1c7f — 初期実装 → 監査・F1〜F4 → 本番デプロイ・DEMO化 → 新機能 → 管理者画面 → カレンダー7列/ログアウト/前月翌月（2adbed4）→ SSH 知識整理（92bdeba）→ グラフ位置/時間帯範囲/日詳細追加（44f0709 + リリース証跡 6dc1c7f）→ ドキュメント整合（72db712/4c35d6a）→ MIT ライセンス + GitHub Releases v1.0.0（本ラウンド）
 ---
 
 # 駐車券記録アプリ — 最終レポート
@@ -35,6 +37,7 @@ commits: 98f5807..6dc1c7f — 初期実装 → 監査・F1〜F4 → 本番デプ
 - **保護**: 管理操作（削除・日別集計・日詳細）のみ簡易PW（初期値 1234、設定ファイル固定）。誤操作・悪用防止ゲートであり、インターネット級の認証ではない（LAN内運用想定）。
 - **UI**: Bootstrap 5.3.3（CDN版・jsDelivr）の日本語モバイルUI。ライト/ダークは OS 設定に自動追従（data-bs-theme="auto"）。
 - **Dockerデプロイ**: このマシン（WSL2 + Docker Desktop）での運用は `php:8.3-apache` コンテナ。DBはホスト `./data` に永続化、`restart: unless-stopped` で自動起動・自動復帰。※Docker テスト環境は 2026-08-07 に終了。運用は本番（https://debugprint.com/parking/）へ直接デプロイ。
+- **ライセンス・配布**: **MIT License**（Copyright (c) 2026 kuwa2005）。レンタルサーバーへのデプロイ一式 zip は **GitHub Releases（v1.0.0 以降）** から取得可能 — **GitHub Actions（`v*` タグ push で自動ビルド）** が生成する。
 
 ## Architecture
 
@@ -70,6 +73,10 @@ lib/db.php → data/parking.db (SQLite, WAL)
 | `tests/production_check.sh` | 本番受入テスト 19ケース（T0相対・実データを壊さない・add_record は読み取り専用検証） |
 | `tests/ssh_knowledge_check.sh` | SSH/デプロイ知識の回帰チェック S1〜S4（禁止語句の非残存を含む） |
 | `tests/docs_consistency_check.sh` | ドキュメント整合の回帰チェック T1〜T11（数値・マーカー・認証情報・git 状態） |
+| `tests/license_and_release_check.sh` | ライセンス + リリースビルドの回帰チェック T1〜T8（LICENSE/MIT/ビルド/zip 収録/workflow/認証情報/git 状態） |
+| `scripts/build_release.sh` | リリース zip の決定論的ビルド（python3 標準ライブラリ zipfile・デプロイ一式 8 ファイル + README + LICENSE・dist/ 出力） |
+| `LICENSE` | MIT License（Copyright (c) 2026 kuwa2005） |
+| `.github/workflows/release.yml` | `v*` タグ push でデプロイ一式 zip をビルドし `gh release create` で GitHub Release を作成・アセット添付（`contents: write`・サードパーティ Action 不使用） |
 | `scripts/seed_demo.php` | デモデータ決定的生成（401件・冪等） |
 | `Dockerfile` | `php:8.3-apache` ベース（pdo_sqlite 同梱）。アプリ一式 + entrypoint を COPY |
 | `docker-compose.yml` | ポート `4500:80`、`./data` バインドマウント、`restart: unless-stopped` |

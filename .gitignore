@@ -2,6 +2,9 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 
+# リリースビルド成果物（GitHub Actions が生成・コミットしない）
+dist/
+
 # エージェント作業ログ（リポジトリ外）
 .oimo
 log.md
