@@ -24,4 +24,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" "dist/parking-ticket-app-$GITHUB_REF_NAME.zip" \
             --title "$GITHUB_REF_NAME" \
-            --notes "parking-ticket-app $GITHUB_REF_NAME（MIT License・Copyright (c) 2026 kuwa2005）。レンタルサーバー（PHP + SQLite・汎用ホスティング）へのデプロイ一式 zip。収録: index.php / admin.php / api.php / lib/config.php / lib/db.php / lib/store.php / data/.htaccess / scripts/seed_demo.php / README.md / LICENSE。配置手順は README.md を参照。"
+            --notes "$(bash scripts/release_notes.sh)"

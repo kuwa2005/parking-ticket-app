@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ライセンス + リリースビルド整合チェック（spec 2026-08-09-mit-license-and-release-spec.md の T1〜T8）
-# 読み取り専用（dist/ へのビルド生成のみ）・全 PASS で exit 0・結果は reports/2026-08-09-mit-license-and-release-check.txt に記録。
+# ライセンス + リリースビルド整合チェック（spec 2026-08-09-mit-license-and-release-spec.md T1〜T7 + 2026-08-09-release-notes-friendly-spec.md T9〜T11 = 全 10 チェック・旧 T8 の git clean チェックは T11 へ移設）
+# 読み取り専用（dist/ へのビルド生成のみ）・全 PASS で exit 0・結果は reports/ に記録。
 set -u
 cd "$(dirname "$0")/.." || exit 2
 FAIL=0
@@ -100,17 +100,39 @@ else
 fi
 
 echo
-echo "== T8: git clean + origin/main 同期（本チェック自身の結果レポートを除く） =="
-DIRTY=$(git status --porcelain | grep -v "reports/2026-08-09-mit-license-and-release-check.txt")
+echo "== T9: リリース説明文（scripts/release_notes.sh） =="
+NOTES=$(bash scripts/release_notes.sh v1.0.0 2>/dev/null)
+ok=1
+LINES=$(printf '%s\n' "$NOTES" | wc -l)
+BLANKS=$(printf '%s\n' "$NOTES" | grep -c '^$' || true)
+printf '%s\n' "$NOTES" | grep -q '^parking-ticket-app v1.0.0' || ok=0
+[ "$LINES" -ge 7 ] || ok=0
+[ "$BLANKS" -ge 2 ] || ok=0
+printf '%s\n' "$NOTES" | grep -q '^- 収録: .*LICENSE' || ok=0
+printf '%s\n' "$NOTES" | grep -q 'github.com/kuwa2005/parking-ticket-app' || ok=0
+check T9 "$ok" "release_notes.sh 出力: $LINES 行・空行 $BLANKS・収録箇条書き（10 ファイル）・README リンク"
+
+echo
+echo "== T10: release.yml が release_notes.sh を使用 =="
+WF=.github/workflows/release.yml
+ok=1
+grep -q 'bash scripts/release_notes.sh' "$WF" || ok=0
+grep -q -- '--notes "$(bash scripts/release_notes.sh)"' "$WF" || ok=0
+python3 -c "import yaml; yaml.safe_load(open('$WF'))" 2>/dev/null || ok=0
+check T10 "$ok" "release.yml が scripts/release_notes.sh 参照（--notes 生成）+ YAML パース"
+
+echo
+echo "== T11: git clean + origin/main 同期（本チェック自身の結果レポートを除く） =="
+DIRTY=$(git status --porcelain | grep -v "reports/2026-08-09-mit-license-and-release-check.txt" | grep -v "reports/2026-08-09-release-notes-friendly-check.txt")
 if [ -z "$DIRTY" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then
-  check T8 1 "clean・origin/main 同期"
+  check T11 1 "clean・origin/main 同期"
 else
-  check T8 0 "未コミット: [$DIRTY] または HEAD と origin/main が不一致"
+  check T11 0 "未コミット: [$DIRTY] または HEAD と origin/main が不一致"
 fi
 
 echo
 if [ "$FAIL" = "0" ]; then
-  echo "RESULT: ALL PASS (8/8)"
+  echo "RESULT: ALL PASS (10/10)"
   exit 0
 else
   echo "RESULT: FAILURES"

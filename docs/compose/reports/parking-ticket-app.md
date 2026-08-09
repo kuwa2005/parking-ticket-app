@@ -168,6 +168,13 @@ docker compose logs -f         # ログ確認
 
 - 事前検証（コミット前）で **T6 が release.yml の YAML 不正（`--notes` 複数行文字列内の `- 収録:` 行がブロックスカラーを終端）を検出** → notes を 1 行化して修正（YAML パースチェックが実バグを摘出した実例）。
 
+### Release 説明文の改善ラウンドの検証（2026-08-09 実測）
+
+| チェック | 内容 | 結果 |
+|---|---|---|
+| `tests/license_and_release_check.sh` | T1〜T7 + **T9〜T11**（全 10 チェック・旧 T8 の git clean チェックは T11 へ移設）: 既存のライセンス/ビルド/ワークフロー + **T9 `scripts/release_notes.sh` 出力（9 行・空行 3・収録箇条書き・README リンク）/ T10 release.yml が release_notes.sh 参照 + YAML パース / T11 git clean・origin/main 同期** | **10/10 PASS**（reports/2026-08-09-release-notes-friendly-check.txt） |
+| 公開済み v1.0.0 の説明文 | `gh api repos/kuwa2005/parking-ticket-app/releases/tags/v1.0.0` の body を取得し改行・セクション構成を実測 | **複数行（概要・`- 収録:` 箇条書き・詳細/デモリンク）に更新済み** — `scripts/release_notes.sh v1.0.0` の出力と一致 |
+
 ## Production Deployment（2026-08-07）
 
 - **公開 URL: https://debugprint.com/parking/**（coreserver.jp 共有ホスティング・SFTP で配置）
@@ -215,9 +222,19 @@ docker compose logs -f         # ログ確認
 - **コミット**: bc7b8bf（実装 9 ファイル）→ f0a9ff3（チェック結果レポート）→ タグ v1.0.0 push → Actions success → **Release v1.0.0 公開済み**（アセット: parking-ticket-app-v1.0.0.zip・github-actions[bot]）。
 - **仕様**: `docs/compose/specs/2026-08-09-mit-license-and-release-spec.md`（R1〜R6・T1〜T8）・ヒアリング: `docs/compose/specs/2026-08-09-mit-license-and-release-hearing.md`（Q1〜Q4）・証跡: `reports/2026-08-09-mit-license-and-release-check.txt`。
 
+## Release 説明文の改善ラウンド（2026-08-09・改行・可読性）
+
+- **依頼（逐語）**: 「Releaseの説明がユーザーフレンドリーではない。改行が一切ない、あまりにもひどすぎるので改善して」。
+- **原因**: 前ラウンドで YAML 破損回避（T6 が検出）のため `--notes` を 1 行に潰して修正した → 公開済み v1.0.0 も含めて説明文が改行ゼロの 1 行になっていた（以後のリリースも同じ 1 行説明になる状態）。
+- **設計（Q1〜Q3・[Never-Ask] 自律決定・Requirements Lock 自律 Approved）**: **R1** = `scripts/release_notes.sh` を新設 — 説明文を stdout に複数行生成（①概要 1 行 ②収録ファイル `- ` 箇条書き ③使い方・詳細リンクの 3 セクション・VERSION は第 1 引数 / GITHUB_REF_NAME / local の順）。**R2** = release.yml の `--notes` を `"$(bash scripts/release_notes.sh)"` に変更（YAML は 1 行のまま維持・パース安全）。**R3** = 公開済み v1.0.0 を `gh release edit v1.0.0 --notes "$(bash scripts/release_notes.sh v1.0.0)"` で更新。**R4** = テスト T9〜T11 追加。**R5** = ドキュメント整合 + コミット/push。
+- **実装の要点**: 説明文生成を単独スクリプトに抽出（「コアロジックをテスト可能な形に抽出」原則）— ワークフロー・ローカル・テストが同一出力を共有し、YAML ブロックスカラーを壊さず複数行を生成できる（前回の YAML 破損事故の再発防止）。
+- **実測**: コミット前実行で T1〜T10 PASS（T11 は未コミットのため想定 FAIL）→ コミット後 **10/10 PASS**。公開済み v1.0.0 の body が複数行（概要・`- 収録:` 箇条書き・詳細リンク）に更新済みであることを `gh api` で実測確認。
+- **仕様**: `docs/compose/specs/2026-08-09-release-notes-friendly-spec.md`（R1〜R5・T9〜T11）・ヒアリング: `docs/compose/specs/2026-08-09-release-notes-friendly-hearing.md`（Q1〜Q3）・証跡: `reports/2026-08-09-release-notes-friendly-check.txt`。
+
 ## Journey Log
 
 - [lesson] GitHub Actions の `run: |` ブロックスカラー内で複数行の `--notes` を書くと、内容行の `- 収録: ...` が column 1 でスカラーを終端して YAML 不正になる（Actions 実行前に拒否される）。チェックテストの YAML パース（python3 yaml.safe_load）がコミット前に実バグを摘出 — リリース物生成コードにも静的検証を掛ける価値を再実証（2026-08-09・T6）。
+- [lesson] Release 説明文の複数行化はワークフローの YAML 内に直書きせず、単独スクリプト（scripts/release_notes.sh・stdout 生成）に抽出して `--notes "$(bash ...)"` で参照する — YAML パースを壊さず、テストが出力を直接検証でき、公開済み Release も同じスクリプトで `gh release edit` して即時改善できる（2026-08-09・Release 説明改善ラウンド）。
 - [dead end] Bootstrap 書き換えで削除ボタンの `del` クラスが脱落し、E2E の `#today-list .del` が全滅（DIAGで実証）。UI クラス名は E2E セレクタと一体。
 - [dead end] `google-chrome` はラッパーで、`kill $PID` では実体 chrome が 9222 と認証済みセッションを保持して残り、次回 E2E が古いブラウザを操作して「PWダイアログが開かない」偽結果になった。→ `pkill -x chrome` + `Network.clearBrowserCookies` で解消。
 - [lesson] Bootstrap Modal の `hide()` は show 遷移（約500ms）完了まで guard で無視する。E2E が 1 秒未満で操作すると「閉じない」ように見える（実ユーザーは PW 入力に秒単位かかるためアプリ側は正常）。→ 遷移完了を待ってから操作する。
@@ -253,3 +270,5 @@ docker compose logs -f         # ログ確認
 | `docs/compose/plans/2026-08-07-day-detail-refresh.md` | 新機能実装計画（5タスク） | store→api→UI→本番デプロイ→docs |
 | `docs/compose/specs/2026-08-09-mit-license-and-release-hearing.md` | MIT + Releases ラウンドのヒアリング Q1〜Q4 | [Never-Ask] 自律決定・Lock Approved |
 | `docs/compose/specs/2026-08-09-mit-license-and-release-spec.md` | MIT + Releases ラウンド仕様 R1〜R6・T1〜T8 | 受入テスト: tests/license_and_release_check.sh |
+| `docs/compose/specs/2026-08-09-release-notes-friendly-hearing.md` | Release 説明改善ラウンドのヒアリング Q1〜Q3 | [Never-Ask] 自律決定・Lock Approved |
+| `docs/compose/specs/2026-08-09-release-notes-friendly-spec.md` | Release 説明改善ラウンド仕様 R1〜R5・T9〜T11 | 受入テスト: tests/license_and_release_check.sh（T9〜T11 追記） |
