@@ -1,0 +1,78 @@
+本番デプロイ + R1〜R3 検証レポート（新ラウンド）
+=============================================
+日時: 2026-08-09（実働）・対象: index.php（カレンダー7列CSS Grid）/ admin.php（ログアウト内蔵・前月翌月ボタン）
+
+事前検証（ローカル・本番スナップショット DB 401件 + php -S 127.0.0.1:4500）
+--------------------------------------------------------------------------
+ハーネス: /tmp/park_prod_r3_check.mjs（読み取り専用・ステップ間 9 秒・chrome 9222 既存ターゲット接続）
+結果: 16/16 PASS（下記・/tmp/park_r3_local.txt に収録）
+
+PASS  R1a メイン画面表示（today-total）
+PASS  R1b カレンダー表示 {"display":"grid","tracks":7,"cellCount":36,"widths":[43],"rowHeights":[46],"today":true,"badges":31,"spacers":24,"overflow":false}
+PASS  R1c grid display=grid
+PASS  R1d 7トラック
+PASS  R1e セル幅均一（43px）
+PASS  R1f 行高均一（46px）
+PASS  R1g バッジ有/無混在（2段構造・実バッジ7=8月記録7日分）
+PASS  R1h はみ出しなし
+PASS  R2a 管理者PWダイアログ表示
+PASS  R2b 認証成功（PW 1234）
+PASS  R2c 記録画面へ（ログアウト内蔵）存在
+PASS  R2d 前月/翌月ボタン存在
+PASS  R3a 月セレクト初期値（month=8）
+PASS  R3b 翌月ボタンで月+1（8→9）
+PASS  R3c 前月ボタンで月-1（9→8）
+PASS  R9 ページエラーなし
+
+本番デプロイ手順
+----------------
+1. lftp mirror -R /tmp/park_deploy5 → public_html/debugprint.com/parking
+   （バンドルはコミット 2adbed4 と byte 一致確認済み・data/parking.db 非含有）
+2. curl マーカー検証: cal-badge-spacer / cal-grid{display:grid / a-logout / a-month-prev
+3. tests/production_check.sh（17 チェック・単独）
+4. node /tmp/park_prod_r3_check.mjs https://debugprint.com/parking（単独・超低速）
+
+実行結果（本番）は下記に追記予定
+--------------------------------
+（本番デプロイ完了後に記録）
+
+## 本番デプロイ + 検証実測（2026-08-09 10:01〜10:08・完了）
+- SSH 遮断の原因確定: **coreserver は接続元 IP の事前登録が必須**（ユーザー提供: https://docomo2.com/ipaddress/b45/ にアクセス → 2〜3 分で SSH 有効化・偽警告画面は無害）。登録後、SSH_OK（exit=0）確認。
+- デプロイ: bash /tmp/park_deploy_r3.sh → lftp mirror -R exit=0（パイプなし直接取得）→ マーカー検証 OK
+  （index: cal-badge-spacer=2 / cal-grid{display:grid=1 ・ admin: a-logout=2 / a-month-prev=2 / a-month-next=2）
+- 配置の確定: **SFTP でサーバー実ファイル取得 = index.php 15947B・PHP ヘッダブロックあり = ローカルバンドルと byte 一致**。
+  HTTP 取得（15526/23807B）は PHP 実行後出力のためサイズが小さく見える（ヘッダブロックは実行されて出力されない）。
+  → **区間38 の「検証 FAIL」（本番 15061/22599B = 実行後出力）は「実行後出力 vs ソース」比較による誤診で、
+  実体は「mirror が未達だった（SSH 遮断）」のみ**。PHP ヘッダはサーバー側で正常実行され
+  セキュリティヘッダ 3 種（nosniff / DENY / no-referrer）は curl -I で供給確認済み。
+- 受入テスト: PROD_PW=1234 bash tests/production_check.sh → **17/17 PASS**
+  （本番データ無傷: T3 add(id=1210) は T6 delete でロールバック・version count=402 maxId=1209・day 2026-06-01=5件）
+- 本番ブラウザ検証: node /tmp/park_prod_r3_check.mjs https://debugprint.com/parking → **16/16 PASS**
+  （単独・超低速・読み取り専用・step 間 9 秒）
+  - R1 カレンダー: {"display":"grid","tracks":7,"cellCount":36,"widths":[43],"rowHeights":[46],"today":true,"badges":31,"spacers":23,"overflow":false}
+    → 7 列 CSS Grid・セル幅 43px 均一・行高 46px 均一・バッジ有無混在（実バッジ 8 = 8月記録 8 日分 = 31-23）・はみ出しなし
+  - R2 admin: PW ダイアログ → 認証（1234）→ a-logout / a-month-prev / a-month-next 存在
+  - R3 月移動: 8 → 9（翌月）→ 8（前月）動作
+  - R9: pageErrors none
+- コミット: reports/2026-08-09-r3-production-check.txt に実測追記 → コミット push 済み（HEAD 更新）
+
+再実行回帰（SSH 待機中の新規実行証跡・09:48〜09:49）
+----------------------------------------------------
+- unit: php tests/run_tests.php → 21/21 PASS（新規実行）
+- smoke: bash tests/smoke_test.sh → 25/25 PASS（新規実行）
+- E2E: node tests/e2e_ui.mjs（php -S 4500 + /tmp/park_e2e.db + chrome 9222 既存ターゲット）
+  → 63/63 PASS・pageErrors none（新規実行・/tmp/park_e2e_run2.txt）
+- ナロービューポート: node /tmp/park_cal_narrow.mjs（375×667・mobile）→ NARROW-VIEWPORT OK
+  （totalCells 36・rows 6・anyOverflow false・/tmp/park_narrow_run2.txt）
+
+ブロッカー記録（SSH/SFTP 22 ポート・coreserver スロットリング）
+-------------------------------------------------------------
+- 09:12 頃: 初回 lftp mirror -R 実行（表示 exit=0 は `| tail` マスクのため実 exit 不明）
+  → 直後の curl 検証で本番に新マーカー 0 件（旧ファイルのまま）を確認
+- 09:14〜09:25: lftp の ls/cls/get 連続試行（~6 接続/数分）→ 以後 SSH 22 が
+  kex_exchange_identification: read: Connection reset by peer（exit=255）で遮断
+- 09:17〜09:44: 単独プローブ（sshpass ssh・echo SSH_OK）を計 6 回実施 → 全て
+  Connection reset by peer（HTTP は正常稼働・本番 DB も live 402 件）
+- 対処: プローブ連発がブロックを延長するため接続を完全停止し、
+  25 分間隔の単独プローブ（監視ループ・セッション再構築で 2 回消失→再設定）で復旧を待つ
+- 09:44 時点: 未復旧（遮断継続中・経過約 32 分）→ 次回プローブ 10:09
