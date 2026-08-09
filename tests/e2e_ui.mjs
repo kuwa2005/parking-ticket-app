@@ -183,6 +183,47 @@ async function main() {
     check('E10 today total=5 after refreshNow', false);
     check('E10 calendar badge updates to 5', false);
   }
+
+  // E18: カレンダー 7 列固定レイアウト（CSS Grid・等幅・行折返し・行高統一・バッジはみ出しなし）
+  const layout = await evaluate(`(() => {
+    const grid = document.getElementById('cal-grid');
+    const gs = getComputedStyle(grid);
+    const gw = grid.getBoundingClientRect().width;
+    const header = [...grid.children].slice(0, 7).map(el => { const r = el.getBoundingClientRect(); return { x: r.x, w: r.width }; });
+    const all = [...grid.children].map(el => { const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), h: Math.round(r.height) }; });
+    const rows = {};
+    for (const c of all) { (rows[c.y] = rows[c.y] || []).push(c); }
+    const ys = Object.keys(rows).map(Number).sort((a, b) => a - b);
+    const today = [...grid.children].find(el => el.dataset.date && el.dataset.date.endsWith('${md}'));
+    const todayRow = today ? rows[Math.round(today.getBoundingClientRect().y)] : null;
+    const badge = today ? today.querySelector('.cal-badge') : null;
+    return {
+      display: gs.display,
+      tracks: gs.gridTemplateColumns.split(' ').length,
+      gw,
+      header,
+      row1X: rows[ys[0]][0].x,
+      row2X: rows[ys[1]][0].x,
+      row1Y: ys[0],
+      row2Y: ys[1],
+      rowHeights: todayRow ? [...new Set(todayRow.map(c => c.h))] : [],
+      badgeOverflow: badge ? badge.scrollWidth > badge.clientWidth : null,
+      badgeText: badge ? badge.textContent : null,
+    };
+  })()`);
+  check('E18 grid display grid 7 tracks', layout.display === 'grid' && layout.tracks === 7, 'display=' + layout.display + ' tracks=' + layout.tracks);
+  const cellW = layout.gw / 7;
+  const wOk = layout.header.every(c => Math.abs(c.w - cellW) / cellW < 0.12);
+  check('E18 header cells equal width ~1/7', wOk, 'widths=' + JSON.stringify(layout.header.map(c => Math.round(c.w))) + ' grid=' + Math.round(layout.gw));
+  const xs = layout.header.map(c => c.x);
+  const gaps = xs.slice(1).map((x, i) => x - xs[i]);
+  const gapMean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const gapOk = gaps.every(g => Math.abs(g - gapMean) / gapMean < 0.12);
+  check('E18 header cells evenly spaced', gapOk, 'gaps=' + JSON.stringify(gaps.map(Math.round)));
+  check('E18 rows wrap 7 cols', layout.row2X === layout.row1X && layout.row2Y > layout.row1Y, 'x1=' + layout.row1X + ' x2=' + layout.row2X + ' y1=' + layout.row1Y + ' y2=' + layout.row2Y);
+  check('E18 same-row heights equal', layout.rowHeights.length === 1 && layout.rowHeights[0] >= 44, 'heights=' + JSON.stringify(layout.rowHeights));
+  check('E18 badge no overflow', layout.badgeOverflow === false, 'badge=' + layout.badgeText);
+
   // カレンダーの今日セル → 日詳細（1行・5枚）
   await evaluate(`(() => { const cell = [...document.querySelectorAll('#cal-grid .cal-cell')].find(c => c.dataset.date && c.dataset.date.endsWith('${md}')); cell.click(); })()`);
   await waitFor("document.getElementById('day-dialog')?.classList.contains('show')");
@@ -259,6 +300,44 @@ async function main() {
   await evaluate("document.querySelector('#a-day-list .del').click();");
   check('E17 row deleted', await waitFor("document.querySelectorAll('#a-day-list .record-row').length === 0"));
   check('E17 table total 0', await waitFor(`(() => { const cell = [...document.querySelectorAll('#a-month-table tbody tr td.a-day-link')].find(td => td.textContent.trim() === '${md}'); return cell ? cell.parentElement.querySelector('td:last-child').textContent === '0' : false; })()`));
+
+  // E19: ログアウト（記録画面へボタン・確認なし）→ セッション破棄で PW 再要求
+  check('E19 admin content visible before logout', (await evaluate("document.getElementById('admin-content').hidden")) === false);
+  await evaluate("document.getElementById('a-logout').click();");
+  check('E19 navigates to index', await waitFor("document.location.pathname.endsWith('/index.php') && document.getElementById('today-total') !== null"));
+  await sleep(400);
+  await send('Page.navigate', { url: BASE + '/admin.php' });
+  check('E19 pw dialog shown again', await waitFor("document.getElementById('a-pw-dialog')?.classList.contains('show')"));
+  check('E19 content hidden after logout', (await evaluate("document.getElementById('admin-content').hidden")) === true);
+  await sleep(800);
+
+  // E20: 日別集計 前月/翌月ボタン（年跨ぎ自動・セレクト同期・表再描画）
+  await evaluate("document.getElementById('a-pw').value = '1234';");
+  await evaluate("document.getElementById('a-pw-ok').click();");
+  await waitFor("document.getElementById('admin-content').hidden === false");
+  await waitFor("document.getElementById('a-month-table').hidden === false");
+  const nowYear = new Date().getFullYear();
+  const setMonth = (y, m) => evaluate(`document.getElementById('a-year').value = '${y}'; document.getElementById('a-month').value = '${m}'; document.getElementById('a-month-btn').click();`);
+  const firstRowDate = () => evaluate("document.querySelector('#a-month-table tbody tr td.a-day-link')?.textContent?.trim() || ''");
+  await setMonth(2026, 6);
+  check('E20 set 2026-06', await waitFor("document.querySelector('#a-month-table tbody tr td.a-day-link')?.textContent?.trim() === '06-01'"));
+  await evaluate("document.getElementById('a-month-prev').click();");
+  check('E20a prev month value', await waitFor("document.getElementById('a-month').value === '5'"));
+  check('E20a prev year unchanged', (await evaluate("document.getElementById('a-year').value")) === '2026');
+  check('E20a prev table redrawn', await waitFor("document.querySelector('#a-month-table tbody tr td.a-day-link')?.textContent?.trim() === '05-01'"));
+  await evaluate("document.getElementById('a-month-next').click();");
+  check('E20b next +1', await waitFor("document.getElementById('a-month').value === '6'"));
+  await evaluate("document.getElementById('a-month-next').click();");
+  check('E20b next +2', await waitFor("document.getElementById('a-month').value === '7'"));
+  check('E20b next table redrawn', await waitFor("document.querySelector('#a-month-table tbody tr td.a-day-link')?.textContent?.trim() === '07-01'"));
+  await setMonth(2026, 1);
+  check('E20c set 2026-01', await waitFor("document.querySelector('#a-month-table tbody tr td.a-day-link')?.textContent?.trim() === '01-01'"));
+  await evaluate("document.getElementById('a-month-prev').click();");
+  check('E20c prev crosses year', await waitFor("document.getElementById('a-year').value === '2025' && document.getElementById('a-month').value === '12'"));
+  await setMonth(nowYear - 10, 12);
+  check('E20d set oldest year Dec', await waitFor("document.querySelector('#a-month-table tbody tr td.a-day-link')?.textContent?.trim() === '12-01'"));
+  await evaluate("document.getElementById('a-month-next').click();");
+  check('E20d next crosses year', await waitFor("document.getElementById('a-year').value === '" + (nowYear - 9) + "' && document.getElementById('a-month').value === '1'"));
 
   console.log('pageErrors:', pageErrors.length ? '\n' + pageErrors.join('\n') : 'none');
 

@@ -1,3 +1,11 @@
+# UI E2E テスト結果（2026-08-09・カレンダーレイアウト修正・ログアウト・前月/翌月ボタン ラウンド）
+
+実行: node tests/e2e_ui.mjs（php -S 127.0.0.1:4500 + PARK_DB_PATH=/tmp/park_e2e.db・chrome 9222 既存接続・マシン TZ=JST）
+結果: 63/63 passed・pageErrors: none（既存 42 件 + 追加 E18〜E20 21 件）
+追加分: E18 カレンダー7列レイアウト（grid/等幅/折返し/行高/はみ出し）6件・E19 ログアウト 4件・E20 前月/翌月 11件
+
+--- 実行ログ（全文） ---
+
 connected to existing chrome
 PASS E1 initial total 0
 PASS E1 empty message
@@ -21,6 +29,12 @@ PASS E9 total=0
 PASS E9 empty again
 PASS E10 today total=5 after refreshNow
 PASS E10 calendar badge updates to 5
+PASS E18 grid display grid 7 tracks — display=grid tracks=7
+PASS E18 header cells equal width ~1/7 — widths=[63,63,63,63,63,63,63] grid=466
+PASS E18 header cells evenly spaced — gaps=[67,67,67,67,67,67]
+PASS E18 rows wrap 7 cols — x1=142 x2=142 y1=112 y2=145
+PASS E18 same-row heights equal — heights=[46]
+PASS E18 badge no overflow — badge=5
 PASS E10 day dialog 1 row 5枚
 PASS E11 prev month grid
 PASS E11 empty day message
@@ -41,6 +55,21 @@ PASS E16 row updated to 8枚
 PASS E16 table total 8
 PASS E17 row deleted
 PASS E17 table total 0
+PASS E19 admin content visible before logout
+PASS E19 navigates to index
+PASS E19 pw dialog shown again
+PASS E19 content hidden after logout
+PASS E20 set 2026-06
+PASS E20a prev month value
+PASS E20a prev year unchanged
+PASS E20a prev table redrawn
+PASS E20b next +1
+PASS E20b next +2
+PASS E20b next table redrawn
+PASS E20c set 2026-01
+PASS E20c prev crosses year
+PASS E20d set oldest year Dec
+PASS E20d next crosses year
 pageErrors: none
 
-RESULT: 42/42 passed
+RESULT: 63/63 passed

@@ -23,7 +23,7 @@ header('Referrer-Policy: no-referrer');
 
   <header class="d-flex justify-content-between align-items-center mt-3">
     <h1 class="h4 mb-0">管理者画面</h1>
-    <a href="index.php" class="btn btn-sm btn-outline-secondary">← 記録画面へ</a>
+    <a href="index.php" id="a-logout" class="btn btn-sm btn-outline-secondary">← 記録画面へ</a>
   </header>
 
   <div id="admin-content" hidden>
@@ -37,9 +37,13 @@ header('Referrer-Policy: no-referrer');
     <!-- 日別集計 -->
     <div class="card mt-3" id="a-monthly-panel">
       <div class="card-body">
-        <div class="d-flex gap-2 mb-3">
+        <div class="d-flex gap-2 mb-3 flex-wrap">
           <select id="a-year" class="form-select form-select-lg"></select>
-          <select id="a-month" class="form-select form-select-lg"></select>
+          <div class="d-flex gap-2">
+            <button id="a-month-prev" type="button" class="btn btn-outline-secondary btn-lg flex-shrink-0">‹ 前月</button>
+            <select id="a-month" class="form-select form-select-lg"></select>
+            <button id="a-month-next" type="button" class="btn btn-outline-secondary btn-lg flex-shrink-0">翌月 ›</button>
+          </div>
           <button id="a-month-btn" class="btn btn-primary btn-lg flex-shrink-0">表示</button>
         </div>
         <div class="text-danger small mb-2" id="a-month-err"></div>
@@ -217,6 +221,13 @@ $('a-pw-ok').addEventListener('click', submitAdminPw);
 $('a-pw-cancel').addEventListener('click', () => aPwModal.hide());
 $('a-pw').addEventListener('keydown', e => { if (e.key === 'Enter') submitAdminPw(); });
 
+// 「記録画面へ」= ログアウト（確認なし）: セッション破棄後に記録画面へ遷移
+$('a-logout').addEventListener('click', async e => {
+  e.preventDefault();
+  try { await fetch('api.php?action=logout', { method: 'POST' }); } catch (err) { /* 遷移を妨げない */ }
+  location.href = 'index.php';
+});
+
 // ---------- タブ ----------
 const TABS = {
   monthly: ['atab-monthly', 'a-monthly-panel'],
@@ -313,6 +324,20 @@ async function renderMonthly() {
 $('a-month-btn').addEventListener('click', renderMonthly);
 $('a-year').addEventListener('change', renderMonthly);
 $('a-month').addEventListener('change', renderMonthly);
+
+// 前月/翌月（年跨ぎ自動・セレクト範囲外は移動しない）
+function shiftMonth(delta) {
+  let y = parseInt($('a-year').value, 10);
+  let m = parseInt($('a-month').value, 10) + delta;
+  if (m < 1) { m = 12; y--; }
+  if (m > 12) { m = 1; y++; }
+  if (!$('a-year').querySelector('option[value="' + y + '"]')) return;
+  $('a-year').value = y;
+  $('a-month').value = m;
+  renderMonthly();
+}
+$('a-month-prev').addEventListener('click', () => shiftMonth(-1));
+$('a-month-next').addEventListener('click', () => shiftMonth(1));
 
 // ---------- 日詳細（編集・削除） ----------
 const aDayModal = new bootstrap.Modal($('a-day-dialog'), { backdrop: 'static', keyboard: false });

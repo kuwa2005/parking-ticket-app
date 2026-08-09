@@ -18,10 +18,13 @@ body{padding-bottom:60px}
 .record-row:last-child{border-bottom:none}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--bs-body-color);color:var(--bs-body-bg);padding:.6rem 1.2rem;border-radius:999px;font-size:.9rem;opacity:0;transition:opacity .25s;pointer-events:none;z-index:1080}
 #toast.show{opacity:1}
-.cal-cell{min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--bs-border-color);border-radius:.375rem;cursor:pointer;position:relative}
+#cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.25rem}
+.cal-cell{min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;border:1px solid var(--bs-border-color);border-radius:.375rem;cursor:pointer;position:relative;padding:.3rem 0}
 .cal-cell:hover{background:var(--bs-tertiary-bg)}
 .cal-cell.today{border-color:var(--bs-primary);color:var(--bs-primary);font-weight:700}
+.cal-cell .cal-day{font-size:.95rem;line-height:1.2}
 .cal-cell .cal-badge{font-size:.7rem;background:var(--bs-primary);color:var(--bs-white);border-radius:999px;padding:0 .4rem;line-height:1.3;margin-top:2px}
+.cal-cell .cal-badge-spacer{visibility:hidden;font-size:.7rem;line-height:1.3;margin-top:2px;padding:0 .4rem}
 .cal-empty{border-color:transparent;cursor:default}
 .cal-empty:hover{background:none}
 </style>
@@ -98,7 +101,7 @@ body{padding-bottom:60px}
           <button id="cal-prev" type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0">‹ 前月</button>
           <button id="cal-next" type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0">翌月 ›</button>
         </div>
-        <div id="cal-grid" class="row row-cols-7 g-1 text-center"></div>
+        <div id="cal-grid" class="text-center"></div>
         <p class="text-body-secondary small mt-2 mb-0">日付をタップするとその日の詳細を表示します（閲覧のみ）</p>
       </div>
     </div>
@@ -338,15 +341,20 @@ async function renderCalendar() {
     cell.dataset.day = String(d);
     if (date === todayStr) cell.classList.add('today');
     const dayNum = document.createElement('span');
+    dayNum.className = 'cal-day';
     dayNum.textContent = d;
     cell.append(dayNum);
     const total = byDate[date] ?? 0;
+    const badge = document.createElement('span');
     if (total > 0) {
-      const badge = document.createElement('span');
       badge.className = 'cal-badge';
       badge.textContent = total;
-      cell.append(badge);
+    } else {
+      // バッジの有無で行の高さが揃うよう、常にバッジ枠を確保する
+      badge.className = 'cal-badge cal-badge-spacer';
+      badge.textContent = '\u00A0';
     }
+    cell.append(badge);
     cell.addEventListener('click', () => {
       calendarModal.hide();
       openDayDetail(date);
