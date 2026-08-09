@@ -158,6 +158,16 @@ docker compose logs -f         # ログ確認
 
 ※ Docker検証（`tests/docker_check.sh`）は Docker テスト環境の終了（2026-08-07・ユーザー指示）に伴い廃止。環境レベルの検証は本番受入テストが担う（直前の Docker 検証 17/17 PASS は `reports/2026-08-07-docker-verification.txt`）。
 
+### MIT ライセンス + GitHub Releases v1.0.0 ラウンドの検証（2026-08-09 実測）
+
+| チェック | 内容 | 結果 |
+|---|---|---|
+| `tests/license_and_release_check.sh` | T1〜T8: LICENSE（MIT・2026 kuwa2005）/ README ライセンス節 / リリースビルド（python3 zipfile・10 ファイル・.db なし）/ release.yml（v* タグ・gh release create・contents: write・YAML パース）/ 認証情報なし / git clean・同期 | **8/8 PASS**（reports/2026-08-09-mit-license-and-release-check.txt） |
+| GitHub Actions（release.yml・run 31291309755） | タグ `v1.0.0` push → 自動ビルド → `gh release create` | **success**（github-actions[bot]・2026-08-09） |
+| Release アセット実測 | `gh release view v1.0.0` + ダウンロードして zipfile 列挙 | **parking-ticket-app-v1.0.0.zip 添付・10 ファイル・.db なし**（https://github.com/kuwa2005/parking-ticket-app/releases/tag/v1.0.0） |
+
+- 事前検証（コミット前）で **T6 が release.yml の YAML 不正（`--notes` 複数行文字列内の `- 収録:` 行がブロックスカラーを終端）を検出** → notes を 1 行化して修正（YAML パースチェックが実バグを摘出した実例）。
+
 ## Production Deployment（2026-08-07）
 
 - **公開 URL: https://debugprint.com/parking/**（coreserver.jp 共有ホスティング・SFTP で配置）
@@ -196,8 +206,18 @@ docker compose logs -f         # ログ確認
 - **検証上の重要訂正**: 「本番に新マーカー 0 件・サイズ不一致」の当初判定（区間38）は誤診 — HTTP 取得は **PHP 実行後出力**（ヘッダブロックは実行されて出力されないためソースより小さく見える）。SFTP でサーバー実ファイルを取得して比較すると**バンドルと byte 一致**。実体は「mirror が SSH 遮断で未達だった」のみ。
 - **仕様**: `docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-spec.md`（R1〜R3・S5/S7）・ヒアリング: `docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-hearing.md`（Q44〜Q47）・証跡: `reports/2026-08-09-r3-production-check.txt`。
 
+## MIT ライセンス + GitHub Releases ラウンド（2026-08-09・v1.0.0）
+
+- **依頼（逐語）**: 「このアプリをMITライセンスにして」「レンタルサーバーへのデプロイ一式をReleasesに登録して。」「リリース物作成はGitHubのActionsを利用すること」「バージョンは v1.0.0 とする」。
+- **設計（Q1〜Q4・[Never-Ask] 自律決定・Requirements Lock 自律 Approved）**: **R1** = リポジトリルートに `LICENSE`（MIT・`Copyright (c) 2026 kuwa2005`）。**R2** = README にライセンス節 + ディレクトリ構成（LICENSE/.github/workflows/scripts）追記 + Releases 案内。**R3** = `.github/workflows/release.yml` — **`v*` タグ push で自動実行**・`permissions: contents: write`・`gh release create`（GH_TOKEN = github.token・サードパーティ Action 不使用）。**R4** = `scripts/build_release.sh` — **python3 標準ライブラリ（zipfile）で決定論的ビルド**（外部依存ゼロ・ローカル/ランナー共通）・収録 = **デプロイ一式 8 ファイル + README + LICENSE**（DB バイナリ・tests・docs・Docker 一式は除外）・`dist/parking-ticket-app-<VERSION>.zip`・zip 内は `parking-ticket-app-<VERSION>/` フォルダ配下。**R5** = 最終レポート・spec・チェックテスト追従 + コミット/push。**R6** = タグ `v1.0.0` push → Actions → Release 登録を実測確認。
+- **ビルド検証**: ローカルと Actions ランナーで同一の build_release.sh が動作（ローカル `local` 版 + Actions 生成 `v1.0.0` 版）。アセットをダウンロードして zipfile 列挙で 10 ファイル・.db なしを実測。
+- **実装中のバグ摘出**: T6 の YAML パースチェックが release.yml の不正 YAML（複数行 `--notes` 内の `- ` リスト行がブロックスカラーを終端）を検出 → notes を 1 行化して修正（コミット前のテストが実バグを救った実例）。
+- **コミット**: bc7b8bf（実装 9 ファイル）→ f0a9ff3（チェック結果レポート）→ タグ v1.0.0 push → Actions success → **Release v1.0.0 公開済み**（アセット: parking-ticket-app-v1.0.0.zip・github-actions[bot]）。
+- **仕様**: `docs/compose/specs/2026-08-09-mit-license-and-release-spec.md`（R1〜R6・T1〜T8）・ヒアリング: `docs/compose/specs/2026-08-09-mit-license-and-release-hearing.md`（Q1〜Q4）・証跡: `reports/2026-08-09-mit-license-and-release-check.txt`。
+
 ## Journey Log
 
+- [lesson] GitHub Actions の `run: |` ブロックスカラー内で複数行の `--notes` を書くと、内容行の `- 収録: ...` が column 1 でスカラーを終端して YAML 不正になる（Actions 実行前に拒否される）。チェックテストの YAML パース（python3 yaml.safe_load）がコミット前に実バグを摘出 — リリース物生成コードにも静的検証を掛ける価値を再実証（2026-08-09・T6）。
 - [dead end] Bootstrap 書き換えで削除ボタンの `del` クラスが脱落し、E2E の `#today-list .del` が全滅（DIAGで実証）。UI クラス名は E2E セレクタと一体。
 - [dead end] `google-chrome` はラッパーで、`kill $PID` では実体 chrome が 9222 と認証済みセッションを保持して残り、次回 E2E が古いブラウザを操作して「PWダイアログが開かない」偽結果になった。→ `pkill -x chrome` + `Network.clearBrowserCookies` で解消。
 - [lesson] Bootstrap Modal の `hide()` は show 遷移（約500ms）完了まで guard で無視する。E2E が 1 秒未満で操作すると「閉じない」ように見える（実ユーザーは PW 入力に秒単位かかるためアプリ側は正常）。→ 遷移完了を待ってから操作する。
@@ -231,3 +251,5 @@ docker compose logs -f         # ログ確認
 | `docs/compose/specs/2026-08-07-production-deploy-spec.md` | 本番デプロイの要件・テスト仕様 | 受入テスト: tests/production_check.sh |
 | `docs/compose/plans/2026-08-07-parking-ticket-app.md` | 実装計画（6タスク） | E2E 追加・根因調査の記録を追記 |
 | `docs/compose/plans/2026-08-07-day-detail-refresh.md` | 新機能実装計画（5タスク） | store→api→UI→本番デプロイ→docs |
+| `docs/compose/specs/2026-08-09-mit-license-and-release-hearing.md` | MIT + Releases ラウンドのヒアリング Q1〜Q4 | [Never-Ask] 自律決定・Lock Approved |
+| `docs/compose/specs/2026-08-09-mit-license-and-release-spec.md` | MIT + Releases ラウンド仕様 R1〜R6・T1〜T8 | 受入テスト: tests/license_and_release_check.sh |
