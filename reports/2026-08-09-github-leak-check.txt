@@ -1,0 +1,55 @@
+GitHub 漏えいチェック結果（SFTP パスワード ohUIjBhdupsL）
+=======================================================
+日時: 2026-08-09（実働）・依頼: ユーザー指示「ohUIjBhdupsL はgithubに漏れていないかチェックして」
+
+結果サマリ
+----------
+✅ SFTP パスワード ohUIjBhdupsL は GitHub（ローカル履歴・公開リポジトリ・GitHub 全体）に漏えいしていない。
+✅ 旧本番 ADMIN_PW P8gaByFADvTl も同様に全走査で該当なし。
+
+走査方法（4 層）と結果
+----------------------
+1. ローカル作業ツリー: git grep -n 'ohUIjBhdupsL' → 0 件
+2. ローカル全コミット履歴: git log --all --oneline -S 'ohUIjBhdupsL' → 0 件
+   全ブロブ走査（rev-list --all 各コミットの git grep -l）→ 0 件
+3. 公開リポジトリ kuwa2005/parking-ticket-app（Public）:
+   新規クローン（/tmp/park_leak_check・HEAD=2adbed4 でローカルと一致）で
+   同 3 走査 → すべて 0 件
+4. GitHub 全体: gh search code 'ohUIjBhdupsL' / gh search commits 'ohUIjBhdupsL' → 0 件
+
+関連情報の走査
+--------------
+- 旧本番 ADMIN_PW（P8gaByFADvTl）: ローカル・リモート全履歴 0 件
+- 認証情報風ファイル名（pass/secret/cred/.env/key）: 全履歴 0 件
+- ※ SFTP ホスト名（b45.coreserver.jp）・アカウント名（pcm）・IP（202.172.25.46）は
+  コミット済み docs/reports（ヒアリングログ・デプロイ spec・production-deploy.txt 等）に
+  接続情報として記載されていた（パスワードではない）
+
+対応: 公開記載の除去（前方修正・履歴書き換えなし）
+-------------------------------------------------
+判断（compose:ask [Never-Ask] → 自律決定「除去する（推奨）」）:
+- リポジトリは Public・記載に読者利益がない・アカウント名 pcm は DNS からは発見不能な
+  真にセンシティブな情報・将来の露呈面を減らすため
+- 履歴内の旧文字列の完全削除は履歴書き換え（強制 push）が必要なため実施しない
+  （破壊的操作・ユーザー明示要求時のみ）
+
+浄化内容（5 ファイル・14 箇所）:
+- docs/compose/specs/2026-08-07-production-deploy-spec.md（2 箇所）
+- docs/compose/specs/2026-08-07-parking-ticket-hearing.md（3 箇所）
+- docs/compose/reports/parking-ticket-app.md（2 箇所）
+- reports/2026-08-07-production-deploy.txt（3 箇所）
+- reports/2026-08-07-production-browser-ui.txt（1 箇所）
+- .gitignore: oimo-session-*.md 追加（writer 成果物の再混入防止・該当ファイル削除）
+置換: b45.coreserver.jp → coreserver.jp / アカウント名・IP・/virtual/pcm/ パス → 一般化
+確認: 浄化後の git grep で残存 0 件 ✅
+
+コミット: 105acb2「chore: 公開リポジトリから SFTP ホスト・アカウント名・IP の記載を除去（パスワード漏えいなし・前方修正）+ セッションアーティファクトを gitignore」push 済み
+
+備考（本チェック中の同時進行事項）
+----------------------------------
+- 本番デプロイ（新ラウンド index/admin の反映）は SSH/SFTP 22 ポートが
+  coreserver 側のスロットリング（kex_exchange_identification: Connection reset）で
+  一時遮断中のため未完了 → 復旧監視ループ（10 分間隔・1 回のみプローブ）を設定し
+  復旧後に /tmp/park_deploy5 を再配置 → 検証 → 報告の予定
+- 本番 DB は live 稼働中（api version = {"count":402,"maxId":1209}・デモ利用者により
+  1 件増加）— データ不触の方針を継続
