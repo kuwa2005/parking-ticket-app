@@ -6,11 +6,19 @@ specs:
   - docs/compose/specs/2026-08-07-parking-ticket-app-spec.md
   - docs/compose/specs/2026-08-07-demo-mode-spec.md
   - docs/compose/specs/2026-08-07-day-detail-and-refresh-spec.md
+  - docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-hearing.md
+  - docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-spec.md
+  - docs/compose/specs/2026-08-09-ssh-block-knowledge-cleanup-hearing.md
+  - docs/compose/specs/2026-08-09-ssh-block-knowledge-cleanup-spec.md
+  - docs/compose/specs/2026-08-09-admin-report-chart-position-hearing.md
+  - docs/compose/specs/2026-08-09-admin-report-chart-position-spec.md
+  - docs/compose/specs/2026-08-09-docs-consistency-hearing.md
+  - docs/compose/specs/2026-08-09-docs-consistency-spec.md
 plans:
   - docs/compose/plans/2026-08-07-parking-ticket-app.md
   - docs/compose/plans/2026-08-07-day-detail-refresh.md
 branch: main
-commits: 98f5807..(最新) — 監査・F1〜F4・本番デプロイ・DEMO化・新機能（日詳細/連動更新/自動更新）
+commits: 98f5807..6dc1c7f — 初期実装 → 監査・F1〜F4 → 本番デプロイ・DEMO化 → 新機能 → 管理者画面 → カレンダー7列/ログアウト/前月翌月（2adbed4）→ SSH 知識整理（92bdeba）→ グラフ位置/時間帯範囲/日詳細追加（44f0709 + リリース証跡 6dc1c7f）→ ドキュメント整合（本ラウンド）
 ---
 
 # 駐車券記録アプリ — 最終レポート
@@ -21,6 +29,8 @@ commits: 98f5807..(最新) — 監査・F1〜F4・本番デプロイ・DEMO化�
 
 - **記録**: 枚数（1〜999）を入力して記録。今日の合計・今日の一覧はパスワードなしで即時表示。
 - **集計**: 年・月を指定した日別集計（各日の合計と月合計）。削除と同様に簡易パスワードで保護。**日付をクリックするとその日の詳細（時刻・枚数の一覧）をモーダル表示**。
+- **過去の閲覧（PW なし）**: 画面上部の本日日付クリック → カレンダー（年・月選択・日別合計バッジ・月曜始まり 7 列グリッド）→ 日付クリックで日詳細モーダル（表示のみ）。
+- **管理者画面（/admin.php・要 PW）**: 日別集計 + 日詳細の**編集（枚数・日時）/削除/追加（つけ忘れ記録・枚数+時間・要認証 add_record）**・**月報/年報（表 + 棒グラフ・グラフは明細の上）**・**分析（曜日別・時間帯別 — 実データの最小〜最大時間の連続範囲・期間サマリ）**・前月/翌月ボタン・ログアウト内蔵。
 - **連動・自動更新**: 日別集計表示中に「記録する」と集計側も最新化。60 秒間隔でデータ更新チェック（軽量 version API）を行い、更新があれば表示中の画面（今日・集計・日詳細）を自動最新化（他端末での記録が反映される）。
 - **保護**: 管理操作（削除・日別集計・日詳細）のみ簡易PW（初期値 1234、設定ファイル固定）。誤操作・悪用防止ゲートであり、インターネット級の認証ではない（LAN内運用想定）。
 - **UI**: Bootstrap 5.3.3（CDN版・jsDelivr）の日本語モバイルUI。ライト/ダークは OS 設定に自動追従（data-bs-theme="auto"）。
@@ -47,16 +57,19 @@ lib/db.php → data/parking.db (SQLite, WAL)
 
 | ファイル | 役割 |
 |---|---|
-| `index.php` | モバイルUI（Bootstrap 5.3.3 CDN、PWダイアログ/日詳細は Bootstrap モーダル、60秒ポーリング） |
-| `api.php` | JSON API: `add` / `today` / `monthly` / `delete` / `login` / `logout` / `day` / `version` |
+| `index.php` | モバイルUI（Bootstrap 5.3.3 CDN、PWダイアログ/日詳細は Bootstrap モーダル、60秒ポーリング、カレンダー過去閲覧） |
+| `admin.php` | 管理者画面（PW ダイアログ・日別集計 + 日詳細編集/削除/追加・月報/年報・分析・Chart.js CDN・前月/翌月・ログアウト） |
+| `api.php` | JSON API: `add` / `today` / `monthly` / `day` / `version` は公開、`delete` / `login` / `logout` / `auth` / `update` / `stats` / `yearly` / `add_record` は要認証 |
 | `lib/config.php` | 定数（DB_PATH / ADMIN_PW=1234 / APP_TZ=Asia/Tokyo / MAX_COUNT=999）。`if (!defined)` 形式でテスト時上書き可 |
 | `lib/db.php` | PDO SQLite 接続 + スキーマ（`records(id, count CHECK 1..999, created_at)`） |
-| `lib/store.php` | コアロジック（now_jst / add_record / get_today / get_day / get_db_version / get_monthly_totals / delete_record） |
+| `lib/store.php` | コアロジック（now_jst / add_record / get_today / get_day / get_db_version / get_monthly_totals / delete_record / update_record / get_stats / get_yearly_totals） |
 | `data/.htaccess` | data/ 配下への直接アクセスを拒否 |
-| `tests/run_tests.php` | 単体テスト T1〜T16（PHP CLI） |
-| `tests/smoke_test.sh` | HTTPスモークテスト 19ケース（php -S + curl） |
-| `tests/e2e_ui.mjs` | UI E2E 25チェック（ヘッドレスchrome + 生CDP、依存ゼロ） |
-| `tests/production_check.sh` | 本番受入テスト 13ケース（T0相対・実データを壊さない） |
+| `tests/run_tests.php` | 単体テスト T1〜T22（PHP CLI） |
+| `tests/smoke_test.sh` | HTTPスモークテスト 30ケース（php -S + curl） |
+| `tests/e2e_ui.mjs` | UI E2E 74チェック（ヘッドレスchrome + 生CDP、依存ゼロ） |
+| `tests/production_check.sh` | 本番受入テスト 19ケース（T0相対・実データを壊さない・add_record は読み取り専用検証） |
+| `tests/ssh_knowledge_check.sh` | SSH/デプロイ知識の回帰チェック S1〜S4（禁止語句の非残存を含む） |
+| `tests/docs_consistency_check.sh` | ドキュメント整合の回帰チェック T1〜T11（数値・マーカー・認証情報・git 状態） |
 | `scripts/seed_demo.php` | デモデータ決定的生成（401件・冪等） |
 | `Dockerfile` | `php:8.3-apache` ベース（pdo_sqlite 同梱）。アプリ一式 + entrypoint を COPY |
 | `docker-compose.yml` | ポート `4500:80`、`./data` バインドマウント、`restart: unless-stopped` |
@@ -119,6 +132,21 @@ docker compose logs -f         # ログ確認
 | E2E（`tests/e2e_ui.mjs`） | 実ブラウザ 42チェック（E1〜E17）: メイン（記録・カレンダー閲覧・削除PW・自動更新・前月ナビ）+ 管理者（PWダイアログ・日別集計・日詳細編集/削除・月報・分析） | **42/42 PASS**（ページ例外なし） |
 | 本番（`tests/production_check.sh`） | **https://debugprint.com/parking/** 実サーバー 17ケース（T0相対）: 既存回帰 + **admin.php 200 / update 未認証 401 / stats 認証 200（2026-06: days=30 total=176）/ monthly・day 未認証 200** | **17/17 PASS** |
 
+### カレンダー改善・グラフ/追加ラウンドの検証（2026-08-09 実測・ローリング結果ファイルを本ラウンドで最新化）
+
+| スイート | 内容 | 結果 |
+|---|---|---|
+| 単体（`tests/run_tests.php`） | T1〜T22: 既存 + **過去日時 add_record（T21）** | **22/22 PASS** |
+| シード（`tests/seed_demo_test.php`） | B1〜B8: デモデータ 401件/68日/count=1/日5〜10・中央値5/時刻範囲/差し替え/冪等/温存 | **8/8 PASS** |
+| スモーク（`tests/smoke_test.sh`） | HTTP 30チェック: 既存 + **add_record（未認証 401 / 認証 201 + created_at / count=0 400 / date 2026-02-31 400 / time 25:00 400）** | **30/30 PASS** |
+| E2E（`tests/e2e_ui.mjs`） | 実ブラウザ 74チェック: 既存 63 + **E14 月報グラフが表の上 / E21 年報（表+グラフ+位置）/ E15b 時間帯ラベル=実データ範囲（データ駆動）/ E22 日詳細の追加 UI（6チェック・E17 の Bootstrap Modal hide() 実バグ検出）** | **74/74 PASS**（ページ例外なし） |
+| 本番（`tests/production_check.sh`） | **https://debugprint.com/parking/** 実サーバー 19ケース（T0相対）: 既存 17 + **T18 add_record 未認証 401 / T19 認証済み不正値 400（count=0・date 2026-02-31・time 25:00）** — データを変える 201 パスは本番未実行（読み取り専用検証・デモデータ 402 件無傷） | **19/19 PASS** |
+
+- カレンダー改善ラウンド（カレンダー7列/ログアウト/前月翌月・2adbed4）の回帰: unit 21/21・smoke 25/25・E2E 63/63 + ナロービューポート 375px OK（実行時点の実測・ローリング結果ファイルの git 履歴に保全）。本番デプロイ後: 受入 17/17・ブラウザ 16/16（reports/2026-08-09-r3-production-check.txt）。
+- グラフ/追加ラウンド（44f0709 → リリース証跡 6dc1c7f）の本番リリース検証: **受入 19/19 PASS + ブラウザ UI 検証 11/11 PASS**（読み取り専用ハーネス /tmp/park_prod_chart_add_check.mjs・ローカル事前検証 → 本番単独・超低速実行・403 規制なし・reports/2026-08-09-admin-round-chart-add-release.txt）。
+
+証跡（ローリング結果ファイルは 2026-08-09 の再実行で最新化・git 履歴に旧実測を保全）: `reports/2026-08-07-unit-test-results.txt`（22/22）/ `reports/2026-08-07-seed-demo-test.txt`（8/8）/ `reports/2026-08-07-smoke-test-results.txt`（30/30）/ `reports/2026-08-07-e2e-ui-results.txt`（74/74）/ `reports/2026-08-09-admin-round-chart-add-check.txt` / `reports/2026-08-09-admin-round-chart-add-release.txt` / `reports/2026-08-09-r3-production-check.txt` / `reports/2026-08-09-ssh-block-knowledge-cleanup-check.txt` / `reports/2026-08-09-docs-consistency-check.txt`
+
 ※本番デプロイ後のブラウザ UI 検証（本番 URL をヘッドレス chrome で操作: カレンダー閲覧・admin PW ログイン・2026-06 集計・日詳細・月報/分析グラフ描画）: **本番オリジン直接実行 16/16 PASS（2026-08-09 05:52・reports/2026-08-07-production-browser-ui.txt）**。初回〜3回目は実行中の連続 fetch がコアサーバーの IP 単位アクセス規制（全ドメイン 403）を誘発して中断したが、ハーネスを「リクエスト最小化 + ステップ間 9 秒」に最適化して成功。参考として、本番配置ファイル群（SFTP mirror・`diff -r` で byte 一致）+ 本番 DB スナップショット（401件）のローカル配信でも同一ハーネス 16/16 PASS。
 
 ※ Docker検証（`tests/docker_check.sh`）は Docker テスト環境の終了（2026-08-07・ユーザー指示）に伴い廃止。環境レベルの検証は本番受入テストが担う（直前の Docker 検証 17/17 PASS は `reports/2026-08-07-docker-verification.txt`）。
@@ -156,7 +184,7 @@ docker compose logs -f         # ログ確認
 - **原因確定（Q44）**: Bootstrap 5.3.3 標準 CSS に `.row-cols-7` は存在しない（row-cols-1〜6 まで）→ index.php:101 の `#cal-grid`（row row-cols-7 g-1）は `.col`（flex-basis 0%）が内容幅に潰れ 7 列折り返しが機能せず崩れていた。
 - **設計（Q44〜Q46・[Never-Ask] 自律決定・Requirements Lock 自律 Approved）**: **R1** = `#cal-grid` を CSS Grid（`display:grid;grid-template-columns:repeat(7,1fr);gap:.25rem`）へ変更 + **常時 2 段セル**（`.cal-cell` を `flex-direction:column;justify-content:space-between`・total=0 の日は `.cal-badge-spacer`（visibility:hidden）でバッジ枠の高さを確保 → 行高が揃う）**R2** = admin.php:26 の「← 記録画面へ」リンクに `id="a-logout"` を付与して**内部ログアウトを内蔵**（click → preventDefault → 既存 logout API → location.href='index.php'・**確認なし**・失敗時も遷移）**R3** = 日別集計の月セレクト `#a-month` を挟む `#a-month-prev`（‹ 前月）`#a-month-next`（翌月 ›）を追加・`shiftMonth(delta)` で ±1（**年跨ぎ自動**・populateYears 範囲外は option 存在チェックで no-op）→ セレクト同期 → renderMonthly()。
 - **テスト仕様**: spec S5 に E2E E18（grid 7 列・6 チェック・E10 後挿入）/E19（ログアウト・4 チェック）/E20（前月/翌月・11 チェック・年跨ぎは範囲内境界）を定義。
-- **回帰実測**: unit **21/21**・smoke **25/25**・E2E **63/63**（pageErrors none）+ ナロービューポート 375px OK（セル幅 43px 均一・行高 46px・dialog 359px ≤ 375px）— reports/2026-08-07-e2e-ui-results.txt + spec S7 に記録。
+- **回帰実測**: unit **21/21**・smoke **25/25**・E2E **63/63**（pageErrors none）+ ナロービューポート 375px OK（セル幅 43px 均一・行高 46px・dialog 359px ≤ 375px）— 実行時点の実測。ローリング結果ファイル（reports/2026-08-07-e2e-ui-results.txt ほか）は 2026-08-09 のドキュメント整合ラウンドで最新（74/74 等）に更新済み・旧実測は git 履歴に保全。
 - **本番デプロイ（直接）**: SSH 遮断（coreserver の接続元 IP 登録制 — ユーザー提供の登録 URL アクセスで 2〜3 分後に有効化）を解消後、lftp mirror -R で index.php / admin.php を上書き（data/parking.db は未送信・402 件保全）→ **受入テスト 17/17 PASS**（T3 add → T6 delete でロールバック・データ無傷）→ **本番ブラウザ検証 16/16 PASS**（/tmp/park_prod_r3_check.mjs・単独・超低速・読み取り専用: カレンダー 7 トラック/等幅 43px/行高 46px/はみ出しなし・admin 認証 → a-logout/a-month-prev/next 存在・月移動 8→9→8・pageErrors none）。
 - **検証上の重要訂正**: 「本番に新マーカー 0 件・サイズ不一致」の当初判定（区間38）は誤診 — HTTP 取得は **PHP 実行後出力**（ヘッダブロックは実行されて出力されないためソースより小さく見える）。SFTP でサーバー実ファイルを取得して比較すると**バンドルと byte 一致**。実体は「mirror が SSH 遮断で未達だった」のみ。
 - **仕様**: `docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-spec.md`（R1〜R3・S5/S7）・ヒアリング: `docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-hearing.md`（Q44〜Q47）・証跡: `reports/2026-08-09-r3-production-check.txt`。

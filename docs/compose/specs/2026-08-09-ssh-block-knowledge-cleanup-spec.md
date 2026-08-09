@@ -1,5 +1,7 @@
 # SSH 遮断対応ノウハウの整理 — 要件・機能仕様・テスト仕様
 
+NOTE: 本仕様の検証結果と実測値の最終取りまとめは [`../reports/parking-ticket-app.md`](../reports/parking-ticket-app.md)（最終レポート）を参照。
+
 - 日付: 2026-08-09
 - 状態: **Requirements Lock Approved**（[Never-Ask] 自律承認・ヒアリングログ参照）
 - 依頼（ユーザー逐語）: 「SSH IPブロック解除前に施行した作業はスキルやノウハウとしては不要なので削除し、SSHアクセスでブロックされたら https://docomo2.com/ipaddress/b45/ にアクセスして2～3分待つということだけ記憶して」

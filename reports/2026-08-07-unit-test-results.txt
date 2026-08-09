@@ -19,5 +19,6 @@ PASS T20 yearly totals
 PASS T17 update count
 PASS T18 update datetime
 PASS T19b update validation
+PASS T21 add_record with past datetime
 
-21/21 passed
+22/22 passed

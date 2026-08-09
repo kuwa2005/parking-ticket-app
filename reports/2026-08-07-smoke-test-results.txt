@@ -1,5 +1,5 @@
 PASS 1 index.php 200 + UI要素
-PASS 2 add(count=2) 201 id=4
+PASS 2 add(count=2) 201 id=1
 PASS 3 today total=2
 PASS 4 add(count=0) 400
 PASS 5 monthly no-auth 200 + today included
@@ -15,7 +15,7 @@ PASS 14 index.php セキュリティヘッダ3種
 PASS 15 day no-auth 200
 PASS 16 day invalid date 400
 PASS 17 day authed 200 + total 2
-PASS 18 version 200 (count=2 maxId=6)
+PASS 18 version 200 (count=2 maxId=3)
 PASS 19 version count decrements
 PASS 20/21 auth no-auth 401 / authed 200
 PASS 22 update no-auth 401
@@ -23,5 +23,10 @@ PASS 23 update authed 200 + total=8
 PASS 24 update invalid 400/400/404
 PASS 25 stats no-auth 401
 PASS 26 stats authed 200 (total=8 days=1) + yearly 12 months
+PASS 27 add_record no-auth 401
+PASS 28 add_record authed 201 (2026-08-01 09:30:00)
+PASS 29 add_record count=0 400
+PASS 30 add_record invalid date 400
+PASS 31 add_record invalid time 400
 
-RESULT: 25 passed, 0 failed
+RESULT: 30 passed, 0 failed

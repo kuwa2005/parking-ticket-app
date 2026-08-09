@@ -1,8 +1,8 @@
-# UI E2E テスト結果（2026-08-09・カレンダーレイアウト修正・ログアウト・前月/翌月ボタン ラウンド）
+# UI E2E テスト結果（2026-08-09・グラフ位置/時間帯範囲/日詳細追加 ラウンド）
 
 実行: node tests/e2e_ui.mjs（php -S 127.0.0.1:4500 + PARK_DB_PATH=/tmp/park_e2e.db・chrome 9222 既存接続・マシン TZ=JST）
-結果: 63/63 passed・pageErrors: none（既存 42 件 + 追加 E18〜E20 21 件）
-追加分: E18 カレンダー7列レイアウト（grid/等幅/折返し/行高/はみ出し）6件・E19 ログアウト 4件・E20 前月/翌月 11件
+結果: 74/74 passed・pageErrors: none（既存 63 件 + 追加 E14+1/E15b/E21/E22 11 件）
+追加分: E14 月報グラフが表の上 1件・E21 年報（表+グラフ+位置）3件・E15b 時間帯ラベル=実データ範囲（データ駆動）1件・E22 日詳細の追加 UI（追加・ダイアログ開閉・行追加・合計更新・編集/削除）6件
 
 --- 実行ログ（全文） ---
 
@@ -30,9 +30,9 @@ PASS E9 empty again
 PASS E10 today total=5 after refreshNow
 PASS E10 calendar badge updates to 5
 PASS E18 grid display grid 7 tracks — display=grid tracks=7
-PASS E18 header cells equal width ~1/7 — widths=[63,63,63,63,63,63,63] grid=466
-PASS E18 header cells evenly spaced — gaps=[67,67,67,67,67,67]
-PASS E18 rows wrap 7 cols — x1=142 x2=142 y1=112 y2=145
+PASS E18 header cells equal width ~1/7 — widths=[43,43,43,43,43,43,43] grid=325
+PASS E18 header cells evenly spaced — gaps=[47,47,47,47,47,47]
+PASS E18 rows wrap 7 cols — x1=25 x2=25 y1=162 y2=195
 PASS E18 same-row heights equal — heights=[46]
 PASS E18 badge no overflow — badge=5
 PASS E10 day dialog 1 row 5枚
@@ -47,14 +47,25 @@ PASS E13 admin day dialog
 PASS E13 edit/delete buttons
 PASS E14 mreport table
 PASS E14 mreport chart drawn
+PASS E14 chart above table
+PASS E21 yreport table
+PASS E21 yreport chart drawn
+PASS E21 chart above table
 PASS E15 summary total 5
 PASS E15 dow chart drawn
 PASS E15 hour chart drawn
+PASS E15b hour labels = min..max continuous — {"hMin":11,"hMax":11,"labels":["11時"]}
 PASS E16 edit dialog opens
 PASS E16 row updated to 8枚
 PASS E16 table total 8
 PASS E17 row deleted
 PASS E17 table total 0
+PASS E22 add button exists
+PASS E22 add dialog opens
+PASS E22 add dialog closes
+PASS E22 row added 10:30 2枚
+PASS E22 table total 2
+PASS E22 new row has edit/delete
 PASS E19 admin content visible before logout
 PASS E19 navigates to index
 PASS E19 pw dialog shown again
@@ -72,4 +83,4 @@ PASS E20d set oldest year Dec
 PASS E20d next crosses year
 pageErrors: none
 
-RESULT: 63/63 passed
+RESULT: 74/74 passed
