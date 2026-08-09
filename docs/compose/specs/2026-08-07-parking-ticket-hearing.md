@@ -139,7 +139,7 @@
 ## Q19. 本番デプロイ（公開環境での運用可否）
 - **質問**: アプリは元々「LAN 内のみ」想定ですが、本番先（coreserver.jp 共有ホスティング）は公開ドメインです。インターネットに公開してよいか？（選択肢: 公開でOK / アクセス制限をかける / 公開しない）
 - **Why asked**: README の想定（LAN内・ログインなし）と、公開ドメインへのデプロイという本番指示の前提が異なるため。公開に伴うセキュリティ方針（PW の強度）を確定する必要がある。
-- **Background**: ユーザー指示「本番環境へデプロイして。必要な情報のみ使用して。」（2026-08-07・第3ラウンド）。接続情報は b45.coreserver.jp（SFTP 22 / アカウント pcm / docroot 記載）。MySQL・PostgreSQL の情報もあるが、アプリは SQLite のため不要（「必要な情報のみ使用」に合致）。
+- **Background**: ユーザー指示「本番環境へデプロイして。必要な情報のみ使用して。」（2026-08-07・第3ラウンド）。接続情報は coreserver.jp（SFTP 22 / docroot 記載）。MySQL・PostgreSQL の情報もあるが、アプリは SQLite のため不要（「必要な情報のみ使用」に合致）。
 - **Result**: **ユーザー不在（[Never-Ask]）のため自律決定: 「公開でOK」としてデプロイを実行**。理由: ユーザーが公開ドメインの docroot を明示指定してデプロイを依頼しており、公開が意図に反するとは考えにくい。ただし公開リスク低減のため管理 PW を新値に変更する（Q20）。
 
 ## Q20. 本番の管理パスワード
@@ -158,11 +158,11 @@
 - **質問**: docroot（/public_html/debugprint.com）には既にポートフォリオサイトが稼働中。アプリをどこに配置するか？（選択肢: サブディレクトリ / ルート置き換え / サブドメイン新設）
 - **Why asked**: 指定 docroot が既存サイト（index.html・about/・projects/ 等）で、ルートにアプリを配置すると既存サイトと衝突するため。
 - **Background**: 監査・実装済みのアプリは相対 URL（fetch('api.php?…')）のためサブディレクトリでも正常動作する（確認済み）。
-- **Result**: 第1回答はユーザー不在（[Never-Ask]）のため自律決定「debugprint.com のサブディレクトリ parking/ に配置」→ その後ユーザーから **「/virtual/pcm/public_html/docomo2.com」（ドメイン変更指示）→「/virtual/pcm/public_html/docomo2.com/parking でよい」（配置先確定指示）**。docomo2.com のルートには PukiWiki が稼働中のため、**アプリは docomo2.com のサブディレクトリ `parking/` に配置**（既存サイト無変更・最小影響）。debugprint.com/parking/ への一時配置は撤回・削除する。
+- **Result**: 第1回答はユーザー不在（[Never-Ask]）のため自律決定「debugprint.com のサブディレクトリ parking/ に配置」→ その後ユーザーから **「docomo2.com の docroot」（ドメイン変更指示）→「docomo2.com の docroot/parking でよい」（配置先確定指示）**。docomo2.com のルートには PukiWiki が稼働中のため、**アプリは docomo2.com のサブディレクトリ `parking/` に配置**（既存サイト無変更・最小影響）。debugprint.com/parking/ への一時配置は撤回・削除する。
 
 ## Q23. Requirements Lock（本番デプロイ）
 - **質問**: 本番デプロイ（配置先・PW変更・SQLite・空DB開始・既存サイト不変更・検証実施）をロックしてよいか？
-- **Result**: **Approved**（ユーザー明言「/virtual/pcm/public_html/docomo2.com/parking でよい」2026-08-07）。→ 実行フェーズへ。**追記（最終確定）**: 配置・検証後にユーザー再指示「https://docomo2.com/parking/ ではなく、https://debugprint.com/parking/ で動かして」→「/virtual/pcm/public_html/debugprint.com/parking が正解」により、**最終配置先は `public_html/debugprint.com/parking/`（https://debugprint.com/parking/）に確定**。docomo2.com/parking/ は撤回・削除済み。仕様: docs/compose/specs/2026-08-07-production-deploy-spec.md・検証結果: reports/2026-08-07-production-deploy.txt。
+- **Result**: **Approved**（ユーザー明言「docomo2.com の docroot/parking でよい」2026-08-07）。→ 実行フェーズへ。**追記（最終確定）**: 配置・検証後にユーザー再指示「https://docomo2.com/parking/ ではなく、https://debugprint.com/parking/ で動かして」→「debugprint.com の docroot/parking が正解」により、**最終配置先は `public_html/debugprint.com/parking/`（https://debugprint.com/parking/）に確定**。docomo2.com/parking/ は撤回・削除済み。仕様: docs/compose/specs/2026-08-07-production-deploy-spec.md・検証結果: reports/2026-08-07-production-deploy.txt。
 
 ## Q24. デモデータのリポジトリ反映方法（本番直接改修の反映ラウンド）
 - **質問**: 本番で投入したデモデータ（401件・2026-06-01〜08-07・各記録1枚・日5〜10件・時刻09:00〜17:05）をリポジトリにどう反映するか？（選択肢: シードスクリプト追加 / 本番 parking.db を同梱 / ドキュメントのみ）

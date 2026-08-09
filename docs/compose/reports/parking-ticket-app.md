@@ -126,7 +126,7 @@ docker compose logs -f         # ログ確認
 ## Production Deployment（2026-08-07）
 
 - **公開 URL: https://debugprint.com/parking/**（coreserver.jp 共有ホスティング・SFTP で配置）
-- サブディレクトリ配置のため既存サイト（debugprint.com ルートのポートフォリオ）には無変更。ユーザー確認済み（ヒアリングログ Q22/Q23・最終指示「/virtual/pcm/public_html/debugprint.com/parking が正解」）
+- サブディレクトリ配置のため既存サイト（debugprint.com ルートのポートフォリオ）には無変更。ユーザー確認済み（ヒアリングログ Q22/Q23・最終指示「debugprint.com の docroot/parking が正解」）
 - **本番 ADMIN_PW はデモ用 1234 とは別のランダム値に変更**（値はリポジトリ外・ユーザーへ直接通知）
 - DB は SQLite のまま空から開始（初回 API 呼び出しで `data/parking.db` 自動作成）。data/.htaccess により直アクセス 403 を実測
 - 本番環境: PHP 8.5.2・pdo_sqlite 有効・display_errors Off・expose_php Off。F1（誤PW 401・1181ms）と F4（セキュリティヘッダ）も共有ホストで動作確認
@@ -159,7 +159,7 @@ docker compose logs -f         # ログ確認
 - [pivot] 「サーバーが立ち上がってない」の指摘で Docker デプロイを追加（Q13〜Q15）。php -S はシェル依存のため消えやすく、Docker の `restart: unless-stopped` に切り替えた。ついでに php -S 運用の「`/data/parking.db` が直接ダウンロード可能」という実証済みの穴が Apache 化で塞がった。
 - [dead end] Docker ビルドで `docker-php-ext-install pdo_sqlite` が `Package 'sqlite3' not found` で失敗。実は `php:8.3-apache` ベースイメージに pdo_sqlite/sqlite3 は**最初から同梱**されており（`php -m` で確認）、ビルド行は不要だった。→ 該当行を削除して解決。
 - [lesson] 共有ホスティングのデプロイ先は「ドキュメントルート = 既存サイト」であることが多く、ルート配置は既存サイトと衝突する。SFTP の実パスは chroot のため絶対パス（/public_html/...）が通らず、ホーム相対パス（public_html/...）で操作する必要がある（coreserver.jp で実証）。
-- [pivot] 配置先はユーザー指示の変遷で確定: debugprint.com/parking/（自律決定）→ docomo2.com/parking/（ユーザー指示）→ 最終的に「/virtual/pcm/public_html/debugprint.com/parking が正解」で **debugprint.com/parking/ に確定**。一時配置した docomo2.com/parking/ は撤回・削除。
+- [pivot] 配置先はユーザー指示の変遷で確定: debugprint.com/parking/（自律決定）→ docomo2.com/parking/（ユーザー指示）→ 最終的に「debugprint.com の docroot/parking が正解」で **debugprint.com/parking/ に確定**。一時配置した docomo2.com/parking/ は撤回・削除。
 - [lesson] 本番の管理PW は公開リポジトリ記載のデモ値（1234）のままにせず、ランダム値に変更する（値はリポジトリ外で管理）。
 - [pivot] DEMO 化（2026-08-07）: ユーザーが本番を直接改修（タイトル(DEMO)・PWダイアログ表示/初期値 1234・get_today 昇順・デモデータ 401件投入・ADMIN_PW=1234）→「本番環境側で直接改修したので、こちらも反映して」でリポジトリへ反映。デモデータは DB バイナリでなく**シードスクリプト（scripts/seed_demo.php・決定的・冪等）**で再現。
 - [lesson] 固定期待の HTTP テストは外部要因で破綻する（smoke 12/14 FAIL の実証）: smoke の「today total=2」等の固定期待が、ポート 4500 が Docker コンテナ（シード済み実DB）に占有された状態で破綻した（実データのレコードが混入）。原因（Docker コンテナ消滅 + 4500 空き）解消後に再実行で 14/14 に復帰。→ テストは T0 相対方式（本番受入）や一時DBの完全隔離（smoke）を徹底。

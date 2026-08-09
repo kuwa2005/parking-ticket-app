@@ -2,7 +2,7 @@
 
 - 日付: 2026-08-07
 - 依頼: 「本番環境へデプロイして。必要な情報のみ使用して。」（ヒアリングログ Q19〜Q23・Requirements Lock Approved）
-- 本番環境: coreserver.jp 共有ホスティング（b45.coreserver.jp・SFTP 22・アカウント pcm）・ドキュメントルート `/virtual/pcm/public_html/debugprint.com`（SFTP 相対: `public_html/debugprint.com`）
+- 本番環境: coreserver.jp 共有ホスティング（SFTP 22）・ドキュメントルート `public_html/debugprint.com`（SFTP 相対: `public_html/debugprint.com`）
 - 配置先: **`public_html/debugprint.com/parking/`**（https://debugprint.com/parking/）
 - 経緯: 当初 docomo2.com/parking/ に配置したが、ユーザー再指示「https://docomo2.com/parking/ ではなく、https://debugprint.com/parking/ で動かして」（2026-08-07）により **debugprint.com/parking/ に最終確定**。docomo2.com/parking/ は撤回・削除。
 
@@ -21,7 +21,7 @@
 
 ## 2. 機能仕様（本番構成）
 
-- 配置後のファイル構成（`/virtual/pcm/public_html/debugprint.com/parking/`）:
+- 配置後のファイル構成（`public_html/debugprint.com/parking/`）:
   - `index.php`（UI・Bootstrap 5.3.3 CDN・相対 URL の fetch で api.php を呼ぶ）
   - `api.php`（JSON API: add/today/monthly/delete/login/logout・セッション認証）
   - `lib/config.php`（**本番 ADMIN_PW は新値**・DB_PATH 既定 `__DIR__.'/../data/parking.db'` → `/parking/data/parking.db`）

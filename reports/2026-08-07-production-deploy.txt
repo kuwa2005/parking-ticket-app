@@ -1,15 +1,15 @@
 # 本番デプロイ検証結果（2026-08-07）
 
 - 依頼: 「本番環境へデプロイして。必要な情報のみ使用して。」（ヒアリングログ Q19〜Q23・Requirements Lock Approved）
-- 本番環境: coreserver.jp 共有ホスティング（b45.coreserver.jp・SFTP 22・アカウント pcm・IP 202.172.25.46）
-- **最終配置先: `/virtual/pcm/public_html/debugprint.com/parking/`（https://debugprint.com/parking/）**
+- 本番環境: coreserver.jp 共有ホスティング（SFTP 22）
+- **最終配置先: `public_html/debugprint.com/parking/`（https://debugprint.com/parking/）**
 - 仕様: docs/compose/specs/2026-08-07-production-deploy-spec.md / テストプログラム: tests/production_check.sh
 
 ## 実施内容
 
 1. 本番用バンドル作成（/tmp/park_deploy）: index.php / api.php / lib/{config,db,store}.php / data/.htaccess — **本番の ADMIN_PW はランダム生成値（英数字12桁）に変更済み・値はリポジトリ外で管理**
 2. SFTP（lftp・ポート22）で debugprint.com の `parking/` サブディレクトリへ配置（既存サイト: ルート index.html・about/・projects/ 等は一切変更なし）
-3. 途中、ユーザー指示により docomo2.com/parking/ へ一時配置したが、「https://debugprint.com/parking/ で動かして」「/virtual/pcm/public_html/debugprint.com/parking が正解」の再指示を受け、**debugprint.com/parking/ に最終確定**・docomo2.com/parking/ は撤回・削除
+3. 途中、ユーザー指示により docomo2.com/parking/ へ一時配置したが、「https://debugprint.com/parking/ で動かして」「debugprint.com の docroot/parking が正解」の再指示を受け、**debugprint.com/parking/ に最終確定**・docomo2.com/parking/ は撤回・削除
 4. 環境プローブ（probe.php・検証後に削除済み）と受入テストを実サーバーに対して実行
 
 ## 本番環境の実測

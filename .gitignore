@@ -5,3 +5,4 @@ data/*.db-shm
 # エージェント作業ログ（リポジトリ外）
 .oimo
 log.md
+oimo-session-*.md
