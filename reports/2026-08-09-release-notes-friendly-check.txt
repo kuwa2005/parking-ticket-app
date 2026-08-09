@@ -1,0 +1,26 @@
+== T1〜T3: LICENSE / README ==
+PASS T1: LICENSE 存在 + MIT License 記載
+PASS T2: Copyright (c) 2026 kuwa2005
+PASS T3: README にライセンス節（MIT）
+
+== T4〜T5: リリースビルド（scripts/build_release.sh） ==
+PASS T4: ビルド成功（dist/parking-ticket-app-local.zip 生成）
+zip contains 10 expected files, no .db
+PASS T5: zip 収録 10 ファイル一致・.db なし
+
+== T6: GitHub Actions ワークフロー ==
+PASS T6: release.yml 存在 + v* タグトリガー + gh release create + contents: write + YAML パース
+
+== T7: 認証情報がコミット対象ドキュメントに存在しない ==
+PASS T7: 外部値ファイルの全認証情報がコミット対象に未記載（leak-check 記録を除く）
+
+== T9: リリース説明文（scripts/release_notes.sh） ==
+PASS T9: release_notes.sh 出力: 9 行・空行 3・収録箇条書き（10 ファイル）・README リンク
+
+== T10: release.yml が release_notes.sh を使用 ==
+PASS T10: release.yml が scripts/release_notes.sh 参照（--notes 生成）+ YAML パース
+
+== T11: git clean + origin/main 同期（本チェック自身の結果レポートを除く） ==
+PASS T11: clean・origin/main 同期
+
+RESULT: ALL PASS (10/10)
