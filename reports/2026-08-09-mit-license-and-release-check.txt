@@ -1,0 +1,33 @@
+ライセンス + リリースビルド整合チェック結果（spec 2026-08-09-mit-license-and-release-spec.md T1〜T8）
+=================================================================================================
+
+- 日時: 2026-08-09（実働）・実行: bash tests/license_and_release_check.sh
+- 対象コミット: bc7b8bf（MIT ライセンス付与 + GitHub Releases v1.0.0 対応）・origin/main 同期済み
+
+== 事前検証（コミット前・T1〜T7 の実証） ==
+- T1〜T5・T7: PASS（初回から）
+- T6: 初回 FAIL → **YAML パースが実バグを検出**（release.yml の `--notes` 複数行文字列内の `- 収録:` 行が column 1 にありブロックスカラーを終端 → YAML 不正・GitHub Actions でも拒否される状態）→ notes を 1 行化して修正 → 再実行で PASS
+- T8: 未コミットのため初回 FAIL（期待どおり）
+
+== コミット後実行（最終結果・8/8 ALL PASS） ==
+
+== T1〜T3: LICENSE / README ==
+PASS T1: LICENSE 存在 + MIT License 記載
+PASS T2: Copyright (c) 2026 kuwa2005
+PASS T3: README にライセンス節（MIT）
+
+== T4〜T5: リリースビルド（scripts/build_release.sh） ==
+PASS T4: ビルド成功（dist/parking-ticket-app-local.zip 生成）
+zip contains 10 expected files, no .db
+PASS T5: zip 収録 10 ファイル一致・.db なし
+
+== T6: GitHub Actions ワークフロー ==
+PASS T6: release.yml 存在 + v* タグトリガー + gh release create + contents: write + YAML パース
+
+== T7: 認証情報がコミット対象ドキュメントに存在しない ==
+PASS T7: 外部値ファイルの全認証情報がコミット対象に未記載（leak-check 記録を除く）
+
+== T8: git clean + origin/main 同期（本チェック自身の結果レポートを除く） ==
+PASS T8: clean・origin/main 同期
+
+RESULT: ALL PASS (8/8)
