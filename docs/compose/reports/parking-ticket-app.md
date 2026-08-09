@@ -150,6 +150,17 @@ docker compose logs -f         # ログ確認
 - **本番デプロイ（直接）**: SFTP（lftp mirror -R）で index.php / admin.php / api.php / lib / scripts を上書き（**data/parking.db は未送信・401 件保全・配置後も 40960B のまま確認済み**）→ 受入テスト **17/17 PASS**（admin.php 200・update 未認証 401・stats 2026-06 days=30 total=176・monthly/day 未認証 200・デモデータ日 2026-06-01 → 5 件）。
 - **仕様**: `docs/compose/specs/2026-08-07-admin-page-and-browsing-spec.md`（R1〜R9）・ヒアリング: `docs/compose/specs/2026-08-07-parking-ticket-hearing.md`（Q33〜Q43）。
 
+## 新ラウンド（2026-08-09・カレンダー7列固定 + 管理者ログアウト内蔵 + 前月/翌月ボタン）
+
+- **依頼（逐語）**: 「メイン画面のカレンダー表示がレイアウトが滅茶苦茶である」「管理者画面からログアウトする手段がない。←記録画面へボタンに内部的にログアウト機能をもたせること。ログアウトの確認は不要」「管理者画面の日別集計で、前月、翌月ボタンが欲しい」+「画面が見たいので一旦リリースして」。
+- **原因確定（Q44）**: Bootstrap 5.3.3 標準 CSS に `.row-cols-7` は存在しない（row-cols-1〜6 まで）→ index.php:101 の `#cal-grid`（row row-cols-7 g-1）は `.col`（flex-basis 0%）が内容幅に潰れ 7 列折り返しが機能せず崩れていた。
+- **設計（Q44〜Q46・[Never-Ask] 自律決定・Requirements Lock 自律 Approved）**: **R1** = `#cal-grid` を CSS Grid（`display:grid;grid-template-columns:repeat(7,1fr);gap:.25rem`）へ変更 + **常時 2 段セル**（`.cal-cell` を `flex-direction:column;justify-content:space-between`・total=0 の日は `.cal-badge-spacer`（visibility:hidden）でバッジ枠の高さを確保 → 行高が揃う）**R2** = admin.php:26 の「← 記録画面へ」リンクに `id="a-logout"` を付与して**内部ログアウトを内蔵**（click → preventDefault → 既存 logout API → location.href='index.php'・**確認なし**・失敗時も遷移）**R3** = 日別集計の月セレクト `#a-month` を挟む `#a-month-prev`（‹ 前月）`#a-month-next`（翌月 ›）を追加・`shiftMonth(delta)` で ±1（**年跨ぎ自動**・populateYears 範囲外は option 存在チェックで no-op）→ セレクト同期 → renderMonthly()。
+- **テスト仕様**: spec S5 に E2E E18（grid 7 列・6 チェック・E10 後挿入）/E19（ログアウト・4 チェック）/E20（前月/翌月・11 チェック・年跨ぎは範囲内境界）を定義。
+- **回帰実測**: unit **21/21**・smoke **25/25**・E2E **63/63**（pageErrors none）+ ナロービューポート 375px OK（セル幅 43px 均一・行高 46px・dialog 359px ≤ 375px）— reports/2026-08-07-e2e-ui-results.txt + spec S7 に記録。
+- **本番デプロイ（直接）**: SSH 遮断（coreserver の接続元 IP 登録制 — ユーザー提供の登録 URL アクセスで 2〜3 分後に有効化）を解消後、lftp mirror -R で index.php / admin.php を上書き（data/parking.db は未送信・402 件保全）→ **受入テスト 17/17 PASS**（T3 add → T6 delete でロールバック・データ無傷）→ **本番ブラウザ検証 16/16 PASS**（/tmp/park_prod_r3_check.mjs・単独・超低速・読み取り専用: カレンダー 7 トラック/等幅 43px/行高 46px/はみ出しなし・admin 認証 → a-logout/a-month-prev/next 存在・月移動 8→9→8・pageErrors none）。
+- **検証上の重要訂正**: 「本番に新マーカー 0 件・サイズ不一致」の当初判定（区間38）は誤診 — HTTP 取得は **PHP 実行後出力**（ヘッダブロックは実行されて出力されないためソースより小さく見える）。SFTP でサーバー実ファイルを取得して比較すると**バンドルと byte 一致**。実体は「mirror が SSH 遮断で未達だった」のみ。
+- **仕様**: `docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-spec.md`（R1〜R3・S5/S7）・ヒアリング: `docs/compose/specs/2026-08-09-calendar-layout-and-admin-usability-hearing.md`（Q44〜Q47）・証跡: `reports/2026-08-09-r3-production-check.txt`。
+
 ## Journey Log
 
 - [dead end] Bootstrap 書き換えで削除ボタンの `del` クラスが脱落し、E2E の `#today-list .del` が全滅（DIAGで実証）。UI クラス名は E2E セレクタと一体。
@@ -170,6 +181,8 @@ docker compose logs -f         # ログ確認
 - [lesson] 共有ホストの IP 規制はドメイン全体に及ぶ（/parking/ だけでなくルート・/about/ も 403）— デプロイ起因と誤認しないよう、規制時はまずドメイン全体を確認して切り分ける。
 - [lesson] 本番ブラウザ検証は「受入テスト（curl 連射）→ ブラウザ検証（連続ナビゲーション）」の連続実行で再トリガーされた。コアサーバーへの検証は**間隔を空けた低速実行**（ステップ間 1.5 秒以上）を標準とし、受入テストとブラウザ検証は同時に行わない。
 - [lesson] admin.php の非同期描画（日別集計・月報・年報・分析）は「タブクリック時の既定値描画と、パラメータ変更後の再描画の fetch が順序逆転」すると古い応答が新しい応答を上書きする競合があった（ローカル E2E は既定値のまま描画するため検出できず、本番向け検証ハーネスが期間切替を高速に行って発見）。**非同期再描画にはレンダートークン（連番比較で古い応答を破棄）を付与**するパターンで修正（E2E 42/42 + 本番向けハーネス 16/16 で検証）。
+- [lesson] coreserver（b45）の SSH/SFTP は「接続元 IP の事前登録制」— 登録 URL（docomo2.com/ipaddress/b45/）にアクセスして 2〜3 分待つと有効化される（表示される警告画面は偽物で無害）。SSH 22 ポートの connection reset が長時間続いた原因はスロットリングでなくこの登録未了であり、**プローブ連発でなく「IP 登録 → 数分待機 → 単独接続」が正解**（2026-08-09・実証）。
+- [lesson] 本番配置の成否判定で「HTTP 取得サイズ vs ローカルソースサイズ」を比較するのは誤診のもと — サーバー上では PHP が実行されるため、HTTP 取得は PHP ブロックが出力されずソースより小さくなる。**配置検証は「新マーカー（新コード固有の文字列）の存在」+「SFTP で取得した実ファイルの byte 比較」で行う**（curl のサイズ比較は補助のみ・2026-08-09・区間38 の誤診から訂正）。
 
 ## Source Materials
 
