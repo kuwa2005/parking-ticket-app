@@ -1,0 +1,53 @@
+# SSH 遮断対応ノウハウ整理 — テスト実行結果（S1〜S4）
+
+- 日付: 2026-08-09
+- 仕様: docs/compose/specs/2026-08-09-ssh-block-knowledge-cleanup-spec.md
+- テストプログラム: tests/ssh_knowledge_check.sh（自動テスト・bash）
+- 実行コマンド: `printf '%s\n' '【外部値ファイル・リポジトリ外】' > /tmp/park_creds_check.txt && bash tests/ssh_knowledge_check.sh`
+  - ※認証情報の実値は公開リポジトリに記載しないため、値は /tmp/park_creds_check.txt（リポジトリ外）にのみ保持。S4 はこのファイルの値を grep して証跡ドキュメントへの漏えいを検査。
+
+## 結果: ALL PASS（S1〜S4・全 15 チェック）
+
+```
+== 対象ファイル存在確認 ==
+M1 OK: MEMORY.md
+M2 OK: MEMORY-e2e-test-tooling.md
+
+== S1: MEMORY.md に正しい知識（登録 URL + 2〜3 分）が存在 ==
+PASS S1: MEMORY.md:13 に登録 URL・同ファイルに「2〜3 分」記載あり
+
+== S2: MEMORY-e2e-test-tooling.md に正しい知識が存在（複数ファイル整合） ==
+PASS S2: MEMORY-e2e-test-tooling.md:25 に登録 URL あり
+
+== S3: 誤診ベースのノウハウが除去されている ==
+PASS S3: MEMORY.md: 「プローブ連発」0 件
+PASS S3: MEMORY.md: 「20 分間隔」0 件
+PASS S3: MEMORY.md: 「接続完全停止」0 件
+PASS S3: MEMORY.md: 「ユーザー直接改修の DEMO 版」0 件
+PASS S3: MEMORY.md: 「サイズ比較×決定的」0 件
+PASS S3: MEMORY.md: 「スロットリングされる」（訂正外）0 件
+PASS S3: MEMORY-e2e-test-tooling.md: 「プローブ連発」0 件
+PASS S3: MEMORY-e2e-test-tooling.md: 「20 分間隔」0 件
+PASS S3: MEMORY-e2e-test-tooling.md: 「接続完全停止」0 件
+PASS S3: MEMORY-e2e-test-tooling.md: 「ユーザー直接改修の DEMO 版」0 件
+PASS S3: MEMORY-e2e-test-tooling.md: 「サイズ比較×決定的」0 件
+PASS S3: MEMORY-e2e-test-tooling.md: 「スロットリングされる」（訂正外）0 件
+
+== S4: 証跡ドキュメントが存在し認証情報を含まない ==
+PASS S4: ヒアリングログ + 仕様が存在
+PASS S4: 外部値ファイルの全認証情報が証跡ドキュメントに未記載
+
+RESULT: ALL PASS
+```
+
+## 検証コマンドの実出力（証跡）
+
+1. `bash tests/ssh_knowledge_check.sh` → 上記のとおり **ALL PASS**（exit 0）
+2. 編集適用前の初回実行では 3 FAIL を検出（S3「ユーザー直接改修の DEMO 版」引用残存 ×1 / S3「サイズ比較×決定的」引用残存 ×1 / S4 ヒアリングログへの認証情報実値記載 ×1）→ 修正（訂正エントリから誤診文句の引用を除去・認証情報実値を外部値ファイル方式へ移行）→ 再実行で ALL PASS。**テストが自身の検査対象（メモリ + 証跡文書）の欠陥を検出・修正したことを記録する。**
+
+## 受入チェックリスト（A1〜A4）
+
+- A1 ✅ メモリに正しい知識（登録 URL + 2〜3 分待ち）のみ残存（S1・S2 PASS）
+- A2 ✅ 誤診ベースのノウハウ除去（S3 PASS）
+- A3 ✅ 証跡ドキュメント 2 点 + 実行結果 1 点が存在し認証情報を含まない（S4 PASS）
+- A4 ✅ 証跡一式をコミット・push（本ファイルと同セット）
