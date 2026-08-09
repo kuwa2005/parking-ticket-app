@@ -1,0 +1,24 @@
+== T1〜T4: ローリング結果ファイルが現在のテスト実測と一致 ==
+PASS T1: 単体結果に 22/22 passed
+PASS T2: スモーク結果に 30 passed, 0 failed
+PASS T3: E2E 結果に 74/74 passed
+PASS T4: シード結果に 8/8 passed
+
+== T5〜T7: README.md ==
+PASS T5: テスト表に 22/30/74 チェック・19 ケース
+PASS T6: api 一覧に add_record
+PASS T7: デプロイ実績に 6dc1c7f・19/19
+
+== T8: 最終レポート ==
+PASS T8: 最終レポートに add_record・74/74・6dc1c7f
+
+== T9: 2026-08-09 の spec/hearing 全ファイルに NOTE マーカー ==
+PASS T9: 2026-08-09 の全 spec/hearing に NOTE あり
+
+== T10: 認証情報がコミット対象ドキュメントに存在しない ==
+PASS T10: 外部値ファイルの全認証情報がコミット対象に未記載（leak-check 記録を除く）
+
+== T11: git clean + origin/main 同期（本チェック自身の結果レポートを除く） ==
+PASS T11: clean・origin/main 同期（結果レポートは本実行で生成・追ってコミット）
+
+RESULT: ALL PASS (11/11)
